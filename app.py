@@ -417,10 +417,10 @@ with st.sidebar:
     if s.strip()
 ]
 
-        st.session_state.watchlist = symbols
+    st.session_state.watchlist = symbols
 
     
-        st.markdown("""
+    st.markdown("""
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 5px;">
         <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="36" height="36" rx="8" fill="#eff6ff"/>
