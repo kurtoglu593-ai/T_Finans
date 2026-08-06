@@ -15,81 +15,6 @@ pio.templates.default = "plotly_dark"
 # Sayfa Ayarları
 st.set_page_config(page_title="T - Otonom Finans Asistanı", page_icon="📈", layout="wide")
 
-# --- KOYU BORSA TERMİNALİ TEMA & CSS STİLLERİ ---
-st.markdown("""
-    <style>
-    /* Ana Sayfa ve Arka Plan */
-    .stApp {
-        background-color: #0E1117;
-        color: #E0E0E0;
-    }
-    
-    /* Yan Menü (Sidebar) */
-    [data-testid="stSidebar"] {
-        background-color: #161B22;
-        border-right: 1px solid #30363D;
-    }
-    
-    /* Metrik Kartları (st.metric) */
-    [data-testid="stMetric"] {
-        background: #161B22;
-        border: 1px solid #30363D;
-        border-radius: 10px;
-        padding: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    [data-testid="stMetric"]:hover {
-        border-color: #58A6FF;
-        transform: translateY(-2px);
-    }
-    [data-testid="stMetricLabel"] {
-        color: #8B949E !important;
-        font-weight: 600;
-        font-size: 0.9rem;
-    }
-    [data-testid="stMetricValue"] {
-        color: #F0F6FC !important;
-        font-weight: 700;
-    }
-    
-    /* Sohbet Mesaj Kartları */
-    .stChatMessage {
-        background-color: #161B22;
-        border: 1px solid #21262D;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        padding: 10px 15px;
-    }
-    
-    /* Input & Buton Stilleri */
-    .stTextInput input {
-        background-color: #0D1117;
-        color: #F0F6FC;
-        border: 1px solid #30363D;
-        border-radius: 6px;
-    }
-    .stButton button {
-        background-color: #21262D;
-        color: #58A6FF;
-        border: 1px solid #30363D;
-        border-radius: 6px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
-    .stButton button:hover {
-        background-color: #30363D;
-        border-color: #58A6FF;
-        color: #ffffff;
-    }
-    
-    /* Ayırıcı Çizgiler */
-    hr {
-        border-color: #30363D !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- KENDİ KODUNU DÜZENLEME & SİGORTA MOTORU ---
 APP_FILE = "app.py"
 BACKUP_FILE = "app_backup.py"
@@ -113,9 +38,9 @@ def validate_python_code(code_string: str) -> bool:
 
 # --- BAŞLIK ---
 st.title("📈 T — Otonom Finans & Gelişim Asistanı")
-st.caption("Koyu Borsa Terminali Modu | Hem finansal analiz yapan hem de kendi kodunu geliştirebilen yapay zeka altyapısı")
+st.caption("Hem finansal analiz yapan hem de kendi kodunu geliştirebilen yapay zeka altyapısı")
 
-# --- ADIM 1: CANLI PİYASA ÖZET BANDI ---
+# --- CANLI PİYASA ÖZET BANDI ---
 @st.cache_data(ttl=60)
 def get_quick_market_data():
     tickers = {
@@ -241,117 +166,4 @@ def fetch_data(symbol: str):
         if df.empty:
             return None
         
-        # SMA ve RSI Hesaplamaları
-        df['SMA20'] = df['Close'].rolling(window=20).mean()
-        df['SMA50'] = df['Close'].rolling(window=50).mean()
-        df['RSI'] = calculate_rsi(df['Close'], 14)
-
-        info = ticker.fast_info
-        return {
-            "symbol": symbol,
-            "price": info.last_price,
-            "change": ((info.last_price - info.previous_close) / info.previous_close) * 100,
-            "currency": getattr(info, 'currency', 'TL'),
-            "df": df
-        }
-    except Exception:
-        return None
-
-def analyze_with_ai(user_prompt: str, market_data: dict, history: list) -> str:
-    data_str = "Canlı piyasa verisi yok."
-    if market_data:
-        last_rsi = market_data['df']['RSI'].iloc[-1] if 'RSI' in market_data['df'] else 0
-        data_str = f"Varlık: {market_data['symbol']} | Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f} | Son RSI(14): {last_rsi:.1f}"
-
-    system_instruction = f"Sen 'T' adında uzman bir finans analistisin. Canlı Veri: {data_str}. Teknik göstergeleri (RSI, Hareketli Ortalamalar) değerlendirerek Türkçe profesyonel yanıt ver."
-
-    messages = [{"role": "system", "content": system_instruction}]
-    for msg in history[-4:]:
-        messages.append({"role": msg["role"], "content": msg["content"]})
-    messages.append({"role": "user", "content": user_prompt})
-
-    try:
-        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.3)
-        return res.choices[0].message.content
-    except Exception as e:
-        return f"⚠️ Hata: {e}"
-
-def detect_symbol_with_ai(user_input: str, history: list) -> str:
-    prompt = f"Geçmiş: {history[-2:]}\nSon Mesaj: '{user_input}'\nBorsa/Kripto kodu nedir? (Örn: THYAO.IS, BTC-USD). Yoksa 'YOK' yaz."
-    try:
-        res = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt}], temperature=0.0)
-        code = res.choices[0].message.content.strip().upper()
-        return None if "YOK" in code or len(code) > 12 else code
-    except Exception:
-        return None
-
-# --- SOHBET VE EKRAN YÖNETİMİ ---
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Merhaba! Ben **T**.\n- Koyu Borsa Terminali modum aktif!\n- Finansal sorular sorabilirsiniz (`THY analizi`, `Bitcoin RSI durumu` vb.)\n- Koduma özellik ekletebilirsiniz."}
-    ]
-
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-if prompt := st.chat_input("T'ye bir soru sorun veya kod güncellemesi isteyin..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        if any(w in prompt.lower() for w in ["koduna ekle", "kendine ekle", "özellik ekle", "sayfaya ekle", "butonu ekle", "kodunu değiştir"]):
-            with st.spinner("🛠️ T kendi kodunu düzenliyor..."):
-                status_msg = evolve_self(prompt)
-                st.markdown(status_msg)
-                st.session_state.messages.append({"role": "assistant", "content": status_msg})
-                if "başarıyla güncellendi" in status_msg:
-                    st.rerun()
-        else:
-            with st.spinner("T teknik verileri inceliyor..."):
-                symbol = detect_symbol_with_ai(prompt, st.session_state.messages)
-                market_data = fetch_data(symbol) if symbol else None
-                ai_response = analyze_with_ai(prompt, market_data, st.session_state.messages)
-                st.markdown(ai_response)
-
-                # GÖRSELLEŞTİRME: CANDLESTICK + SMA20/50 + RSI (PLOTLY_DARK TEMASI)
-                if market_data and market_data.get("df") is not None:
-                    df = market_data["df"].tail(90)
-                    
-                    fig = make_subplots(
-                        rows=2, cols=1, 
-                        shared_xaxes=True, 
-                        vertical_spacing=0.08, 
-                        subplot_titles=(f"{market_data['symbol']} Fiyat & SMA", "RSI (14)"),
-                        row_heights=[0.7, 0.3]
-                    )
-
-                    # Mum Grafiği
-                    fig.add_trace(go.Candlestick(
-                        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Fiyat"
-                    ), row=1, col=1)
-
-                    # SMA 20 ve SMA 50
-                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#FFA500', width=1.5)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#00BFFF', width=1.5)), row=1, col=1)
-
-                    # RSI Grafiği
-                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#BF5AF2', width=1.5)), row=2, col=1)
-
-                    # RSI Referans Çizgileri (30 & 70)
-                    fig.add_hline(y=70, line_dash="dash", line_color="#FF453A", row=2, col=1)
-                    fig.add_hline(y=30, line_dash="dash", line_color="#30D158", row=2, col=1)
-
-                    # Plotly Dark Teması Entegrasyonu
-                    fig.update_layout(
-                        template="plotly_dark",
-                        height=520,
-                        xaxis_rangeslider_visible=False,
-                        showlegend=True,
-                        paper_bgcolor="#161B22",
-                        plot_bgcolor="#0D1117"
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-
-                st.session_state.messages.append({"role": "assistant", "content": ai_response})
+        # SMA ve RSI
