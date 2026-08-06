@@ -1,13 +1,13 @@
+import os
+import ast
+import shutil
+import pandas as pd
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
-import pandas as pd
 from groq import Groq
-import os
-import ast
-import shutil
 
 # Plotly Tema Ayarı
 pio.templates.default = "plotly_dark"
@@ -23,28 +23,21 @@ st.set_page_config(
 # --- FINANS TERMINALI CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* Ana Arka Plan */
     .stApp {
         background-color: #0B0E14;
         color: #E1E6ED;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    
-    /* Yan Menü (Sidebar) */
     [data-testid="stSidebar"] {
         background-color: #12161F !important;
         border-right: 1px solid #1E2330 !important;
     }
-    
-    /* Üst Başlık ve Header Gizleme/Sadeleştirme */
     header {visibility: hidden;}
     .main .block-container {
         padding-top: 1.5rem;
         padding-bottom: 1.5rem;
         max-width: 98%;
     }
-    
-    /* Metrik / Piyasa Kartları (TradingView Stili) */
     [data-testid="stMetric"] {
         background: #151922;
         border: 1px solid #222836;
@@ -64,16 +57,12 @@ st.markdown("""
         font-size: 1.4rem !important;
         font-weight: 700 !important;
     }
-    
-    /* Chat/Mesaj Kutuları */
     .stChatMessage {
         background-color: #151922 !important;
         border: 1px solid #222836 !important;
         border-radius: 8px !important;
         color: #E1E6ED !important;
     }
-    
-    /* Input ve Butonlar */
     .stTextInput input {
         background-color: #181D28 !important;
         color: #FFFFFF !important;
@@ -94,8 +83,6 @@ st.markdown("""
         color: #0B0E14 !important;
         border-color: #29B6F6 !important;
     }
-    
-    /* Ayırıcı Çizgiler */
     hr {
         border-color: #1E2330 !important;
     }
@@ -130,8 +117,9 @@ def evolve_self(user_instruction: str) -> str:
 
         prompt = (
             "Sen expert bir Python ve Streamlit geliştiricisisin.\n"
-            f"Aşağıda app.py kodları bulunmaktadır:\n```python\n{current_code}\n```\n"
-            f'Kullanıcı İsteği: "{user_instruction}"\n'
+            "Aşağıda app.py kodları bulunmaktadır:\n"
+            "```python\n" + current_code + "\n```\n"
+            "Kullanıcı İsteği: \"" + user_instruction + "\"\n"
             "GÖREVİN: Koda istenen yeni özelliği hatasız ekle ve SADECE çalışan tam Python kodunu döndür."
         )
 
@@ -179,14 +167,16 @@ def fetch_data(symbol: str):
         df['RSI'] = calculate_rsi(df['Close'], 14)
 
         info = ticker.fast_info
+        last_p = float(info.last_price)
+        prev_p = float(info.previous_close)
+        pct_chg = ((last_p - prev_p) / prev_p) * 100.0
+        curr = getattr(info, 'currency', 'TL')
+
         return {
             "symbol": symbol,
-            "price": info.last_price,
-            "change": ((info.last_price - info.previous_close) / info.previous_close) * 100,
-            "currency": getattr(info, 'currency', 'TL'),
+            "price": last_p,
+            "change": pct_chg,
+            "currency": curr,
             "df": df
         }
-    except Exception:
-        return None
-
-@st.cache_data(
+    except
