@@ -328,20 +328,66 @@ def calculate_rsi(series, period=Config.RSI_PERIOD):
     rsi = 100 - (100 / (1 + rs))
     return rsi.fillna(50).clip(0, 100)
 
+# 📍 TREND BELİRLEME - DÜZELTİLDİ
 def determine_trend(price, sma20, sma50):
-    if pd.isna(sma20) or pd.isna(sma50):
-        return "BELİRSİZ", "⚖️"
+    """Trend yönünü belirle - Daha doğru algoritma"""
     
+    # Eğer SMA değerleri yoksa veya NaN ise
+    if sma20 is None or pd.isna(sma20):
+        return "VERİ YOK", "❓"
+    
+    if sma50 is None or pd.isna(sma50):
+        # Sadece SMA20 var
+        if price > sma20:
+            return "YÜKSELİŞ (Kısa Vade)", "📈"
+        elif price < sma20:
+            return "DÜŞÜŞ (Kısa Vade)", "📉"
+        else:
+            return "YATAY", "➡️"
+    
+    # 📍 HEM SMA20 hem SMA50 var - Ana trend analizi
+    # Fiyatın SMA'lara göre konumu
+    price_vs_sma20 = price - sma20
+    price_vs_sma50 = price - sma50
+    
+    # SMA'ların birbirine göre konumu (trend gücü)
+    sma20_vs_sma50 = sma20 - sma50
+    
+    # KESİN trend belirleme kuralları
     if price > sma20 and price > sma50:
-        return "GÜÇLÜ YÜKSELİŞ", "📈"
-    elif price > sma20:
-        return "YÜKSELİŞ", "📈"
+        if sma20 > sma50:
+            return "GÜÇLÜ YÜKSELİŞ", "📈"
+        else:
+            return "YÜKSELİŞ (Dönüş)", "📈"
+    
     elif price < sma20 and price < sma50:
-        return "GÜÇLÜ DÜŞÜŞ", "📉"
-    elif price < sma20:
-        return "DÜŞÜŞ", "📉"
+        if sma20 < sma50:
+            return "GÜÇLÜ DÜŞÜŞ", "📉"
+        else:
+            return "DÜŞÜŞ (Dönüş)", "📉"
+    
+    elif price > sma20 and price < sma50:
+        # Kısa vade yükseliş, orta vade düşüş
+        if abs(price - sma20) > abs(price - sma50):
+            return "YATAY (Dirençte)", "➡️"
+        else:
+            return "YÜKSELİŞ (Deneme)", "↗️"
+    
+    elif price < sma20 and price > sma50:
+        # Kısa vade düşüş, orta vade yükseliş
+        if abs(price - sma20) > abs(price - sma50):
+            return "YATAY (Destekte)", "➡️"
+        else:
+            return "DÜŞÜŞ (Deneme)", "↘️"
+    
     else:
-        return "YATAY", "➡️"
+        # Yakın değerler
+        if abs(price - sma20) < 0.01 * price:
+            return "SMA20 SEVİYESİ", "⚖️"
+        elif abs(price - sma50) < 0.01 * price:
+            return "SMA50 SEVİYESİ", "⚖️"
+        else:
+            return "YATAY", "➡️"
 
 def get_rsi_comment(rsi_value):
     if rsi_value > 70:
@@ -489,37 +535,10 @@ def fetch_stooq_data(symbol: str):
     
     return None
 
+# 📍 MOCK VERİ ÜRETİMİ - TAMAMEN KALDIRILDI
 def generate_mock_data(symbol: str):
-    logger.warning(f"Mock veri üretiliyor: {symbol}")
-    
-    dates = pd.date_range(end=datetime.datetime.now(), periods=30, freq='D')
-    base_price = 100.0 + (hash(symbol) % 1000) / 10.0
-    
-    np.random.seed(hash(symbol) % 1000)
-    returns = np.random.randn(30) * 0.02
-    prices = base_price * np.cumprod(1 + returns)
-    
-    df = pd.DataFrame({
-        'Open': prices * (1 - np.random.rand(30) * 0.01),
-        'High': prices * (1 + np.random.rand(30) * 0.015),
-        'Low': prices * (1 - np.random.rand(30) * 0.015),
-        'Close': prices,
-    }, index=dates)
-    
-    df['SMA20'] = df['Close'].rolling(Config.SMA_FAST).mean()
-    df['SMA50'] = df['Close'].rolling(Config.SMA_SLOW).mean()
-    df['RSI'] = calculate_rsi(df['Close'], Config.RSI_PERIOD)
-    
-    return {
-        "symbol": symbol,
-        "price": float(prices[-1]),
-        "change": float(((prices[-1] - prices[0]) / prices[0]) * 100),
-        "currency": "TRY",
-        "support": float(df['Low'].min()),
-        "resistance": float(df['High'].max()),
-        "df": df,
-        "is_mock": True
-    }
+    """🚫 ARTIK KULLANILMIYOR - Gerçek veri yoksa hata döndür"""
+    return None
 
 def validate_market_data(data: Dict[str, Any]) -> bool:
     required_fields = ['symbol', 'price', 'change', 'df']
@@ -539,15 +558,22 @@ def validate_market_data(data: Dict[str, Any]) -> bool:
         
     return True
 
+# 📍 VERİ ÇEKME - MOCK KALDIRILDI
 def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
+    """Gerçek veri çeker, mock üretmez"""
     clean_sym = sanitize_symbol(symbol)
     logger.info(f"Veri çekiliyor: {clean_sym}")
     
+    # Önce TradingView dene
     try:
         tv_res = fetch_bist_tradingview(clean_sym)
         if tv_res and validate_market_data(tv_res):
             return tv_res
-            
+    except Exception as e:
+        logger.error(f"TradingView hatası ({clean_sym}): {e}")
+    
+    # Sonra Stooq dene
+    try:
         df_stooq = fetch_stooq_data(clean_sym)
         if df_stooq is not None:
             df_stooq['SMA20'] = df_stooq['Close'].rolling(window=Config.SMA_FAST).mean()
@@ -574,14 +600,11 @@ def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
             
             if validate_market_data(result):
                 return result
-                
     except Exception as e:
-        logger.error(f"Veri çekme hatası ({clean_sym}): {e}")
+        logger.error(f"Stooq hatası ({clean_sym}): {e}")
     
-    mock_data = generate_mock_data(clean_sym)
-    if validate_market_data(mock_data):
-        return mock_data
-        
+    # 📍 HİÇBİR VERİ YOKSA - HATA DÖNDÜR (MOCK YOK)
+    logger.error(f"⚠️ {clean_sym} için hiçbir veri kaynağından veri alınamadı!")
     return None
 
 @st.cache_data(ttl=Config.CACHE_TTL_MEDIUM)
@@ -653,15 +676,7 @@ def fetch_bist_ana_data():
             "df": df_ana
         }
     
-    return {
-        "symbol": "BIST ANA",
-        "price": 9500.0,
-        "change": 0.5,
-        "currency": "TRY",
-        "support": 9300.0,
-        "resistance": 9700.0,
-        "df": None
-    }
+    return None
 
 # 📍 ANALYZE WITH AI - DÜZELTİLDİ
 def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], history: list, client) -> str:
@@ -673,14 +688,16 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
         else:
             last_rsi = float(calculate_rsi(df['Close'], Config.RSI_PERIOD).iloc[-1])
         
-        # 📍 SMA değerlerini güvenli şekilde al
+        # SMA değerlerini al
         sma20 = df['SMA20'].iloc[-1] if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
         sma50 = df['SMA50'].iloc[-1] if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None        
         last_close = float(market_data['price'])
+        
+        # 📍 TREND BELİRLEME - GÜNCEL
         trend_text, trend_icon = determine_trend(last_close, sma20, sma50)
         rsi_comment, _ = get_rsi_comment(last_rsi)
         
-        # 📍 None değerleri için güvenli format
+        # None değerleri için güvenli format
         sma20_str = f"{sma20:.2f}" if sma20 is not None else "Hesaplanıyor..."
         sma50_str = f"{sma50:.2f}" if sma50 is not None else "Hesaplanıyor..."
         currency = market_data['currency'] if sma20 is not None else ""
@@ -698,10 +715,10 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
             f"- Direnç Seviyesi: {market_data['resistance']:.2f} {market_data['currency']}"
         )
         
-        if market_data.get('is_mock'):
-            data_str += "\n\n⚠️ UYARI: Bu veriler demo amaçlı üretilmiştir."
+        # 📍 MOCK UYARISI KALDIRILDI (artık mock yok)
+        
     else:
-        data_str = "⚠️ UYARI: Canlı veri çekilemedi."
+        data_str = "⚠️ UYARI: Canlı veri çekilemedi. Lütfen geçerli bir sembol girin."
 
     system_instruction = (
         "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n\n"
@@ -709,7 +726,8 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
         "1. Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
         "2. Analizini TEKNİK İNDİKATÖRLERE dayandır.\n"
         "3. Cevabını 3-4 paragrafta, net ve öz bir şekilde ver.\n"
-        "4. Türkçe yaz, ama İngilizce terimleri doğru kullan.\n\n"
+        "4. Türkçe yaz, ama İngilizce terimleri doğru kullan.\n"
+        "5. Eğer veri yoksa veya sembol geçersizse, bunu açıkça belirt.\n\n"
         "📈 TEKNİK ANALİZ KURALLARI:\n"
         "- RSI 70 üstü = AŞIRI ALIM (satış düşünülebilir)\n"
         "- RSI 30 altı = AŞIRI SATIM (alım düşünülebilir)\n"
@@ -939,13 +957,11 @@ with col_left:
             df['RSI'] = calculate_rsi(df['Close'], Config.RSI_PERIOD)
             last_rsi = float(df['RSI'].iloc[-1])
         
-        mock_warning = " ⚠️ (DEMO)" if market_data.get('is_mock') else ""
-        
         st.markdown(
             f"""
             <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px 14px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
                 <span style="font-weight: 700; color: #f1f5f9;">{market_data['symbol']}</span>
-                <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">Canlı Veri{mock_warning}</span>
+                <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">Canlı Veri</span>
                 <span style="float: right; font-weight: 700; color: #f1f5f9; font-family: 'JetBrains Mono', monospace;">
                     {market_data['price']:.2f} {market_data['currency']}
                     <span style="color: {trend_color}; margin-left: 8px;">%{market_data['change']:+.2f}</span>
@@ -1053,7 +1069,7 @@ with col_left:
             
     else:
         st.error(f"❌ **{active_symbol}** için borsadan canlı veri alınamadı.")
-        st.info("💡 Öneriler:\n- Sembol kodunu kontrol edin (örn: THYAO.IS)\n- Borsa açık mı kontrol edin\n- Daha sonra tekrar deneyin")
+        st.info("💡 Öneriler:\n- Sembol kodunu kontrol edin (örn: THYAO.IS)\n- Borsa açık mı kontrol edin\n- Geçerli bir hisse kodu girin (örn: GARAN.IS, THYAO.IS)")
 
 # SAĞ PANEL
 with col_right:
