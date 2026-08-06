@@ -1,5 +1,7 @@
 streamlit
-groq
-yfinance
 plotly
 pandas
+numpy
+groq
+yfinance
+curl_cffi
