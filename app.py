@@ -11,8 +11,8 @@ from groq import Groq
 MODEL_70B = "llama-3.3-70b-versatile"
 MODEL_8B = "llama-3.1-8b-instant"
 
-# Plotly Tema Ayarı
-pio.templates.default = "plotly_dark"
+# Plotly Tema Ayarı (Aydınlık Moda Geçiş)
+pio.templates.default = "plotly_white"
 
 # Sayfa Yapılandırması
 st.set_page_config(
@@ -22,19 +22,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DERİN OVERRIDE: TÜM CONTAINER VE BİLEŞEN STİLLERİNİ SIFIRLAMA ---
+# --- FERAH VE AYDINLIK FİNANS TEMASI (LIGHT MODE) ---
 st.markdown("""
 <style>
-    /* 1. GLOBAL ARKA PLAN VE FONT */
+    /* 1. GLOBAL AYDINLIK ZEMİN VE FONT */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background: #04060a !important;
-        color: #94a3b8 !important;
-        font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
     
     [data-testid="stSidebar"] {
-        background-color: #070a10 !important;
-        border-right: 1px solid #131c2e !important;
+        background-color: #ffffff !important;
+        border-right: 1px solid #e2e8f0 !important;
     }
 
     header, footer { display: none !important; }
@@ -44,7 +44,7 @@ st.markdown("""
         max-width: 99% !important;
     }
 
-    /* 2. TÜM STREAMLIT CONTAINER / KUTU VARSAYILANLARINI KAZIMA */
+    /* 2. TÜM CONTAINER VE KUTU VARSAYILANLARINI BEYAZ YAPMA */
     [data-testid="stVerticalBlock"] > div {
         background: transparent !important;
         border: none !important;
@@ -52,84 +52,87 @@ st.markdown("""
 
     /* 3. METRİK KARTLARI (TICKER TAPE) */
     [data-testid="stMetric"] {
-        background: #080d16 !important;
-        border: 1px solid #131c2e !important;
-        border-radius: 4px !important;
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
         padding: 10px 14px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
     }
     [data-testid="stMetricLabel"] {
-        color: #475569 !important;
-        font-size: 0.7rem !important;
+        color: #64748b !important;
+        font-size: 0.75rem !important;
         font-weight: 700 !important;
     }
     [data-testid="stMetricValue"] {
-        color: #f8fafc !important;
+        color: #0f172a !important;
         font-size: 1.25rem !important;
         font-weight: 800 !important;
     }
 
-    /* 4. CHAT VE KUTULARIN İÇ ARKA PLANLARI */
+    /* 4. CHAT VE KUTU İÇLERİ */
     [data-testid="stChatMessage"] {
-        background-color: #080d16 !important;
-        border: 1px solid #131c2e !important;
-        border-radius: 4px !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        color: #0f172a !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
     
-    /* Info ve Alert Kutularını Terminal Uyumlu Yapma */
     [data-testid="stAlert"] {
-        background-color: #080d16 !important;
-        color: #38bdf8 !important;
-        border: 1px solid #131c2e !important;
-        border-radius: 4px !important;
+        background-color: #e0f2fe !important;
+        color: #0369a1 !important;
+        border: 1px solid #bae6fd !important;
+        border-radius: 8px !important;
     }
 
-    /* 5. INPUT ALANLARI VE BEYAZ CHAT INPUT'U SİYAHLAŞTIRMA */
+    /* 5. INPUT VE BEYAZ CHAT ALANI SIFIRLAMA */
     [data-testid="stChatInput"] {
-        background-color: #080d16 !important;
-        border: 1px solid #1a273e !important;
-        border-radius: 6px !important;
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04) !important;
     }
     [data-testid="stChatInput"] textarea {
-        color: #00e676 !important;
+        color: #0f172a !important;
         background-color: transparent !important;
     }
 
     .stTextInput input {
-        background-color: #080d16 !important;
-        color: #00e676 !important;
-        border: 1px solid #131c2e !important;
-        border-radius: 4px !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
     }
 
     /* 6. BUTTON STİLLERİ */
     .stButton button {
-        background: #0d1527 !important;
-        color: #00e676 !important;
-        border: 1px solid #1a273e !important;
-        border-radius: 4px !important;
-        font-weight: 700 !important;
+        background: #2563eb !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
         width: 100%;
+        transition: background 0.2s ease;
     }
     .stButton button:hover {
-        background: #00e676 !important;
-        color: #04060a !important;
-        border-color: #00e676 !important;
+        background: #1d4ed8 !important;
+        color: #ffffff !important;
     }
 
     /* 7. ÖZEL TERMINAL HEADER PANELERİ */
     .t-panel-header {
-        background: #080d16;
-        border: 1px solid #131c2e;
-        border-bottom: none;
-        padding: 6px 12px;
-        font-size: 0.75rem;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-bottom: 2px solid #2563eb;
+        border-radius: 8px 8px 0 0;
+        padding: 8px 14px;
+        font-size: 0.8rem;
         font-weight: 700;
-        color: #00e676;
+        color: #1e293b;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -237,7 +240,7 @@ def detect_symbol_with_ai(user_input, history, client):
 
 # --- YAN MENÜ (SIDEBAR) ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #00e676; font-size: 1rem; margin:0;'>⚡ T — TERMINAL</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #2563eb; font-size: 1.1rem; margin:0;'>⚡ T — TERMINAL</h3>", unsafe_allow_html=True)
     st.caption("Quantitative Trading Core")
     st.markdown("---")
 
@@ -246,7 +249,7 @@ with st.sidebar:
         groq_api_key = os.environ.get("GROQ_API_KEY", "")
 
     st.markdown("---")
-    st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #475569; margin-bottom:5px;'>WATCHLIST</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom:5px;'>WATCHLIST</p>", unsafe_allow_html=True)
     watchlist_input = st.text_input("Semboller:", value="THYAO.IS, ASELS.IS, BTC-USD")
     if st.button("🔄 GÜNCELLE"):
         symbols = [s.strip().upper() for s in watchlist_input.split(",") if s.strip()]
@@ -288,7 +291,7 @@ if "messages" not in st.session_state:
 
 # SOL PANEL: Grafik Engine
 with col_left:
-    st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span>STATUS: LIVE</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● LIVE</span></div>", unsafe_allow_html=True)
     
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
@@ -309,29 +312,29 @@ with col_left:
         fig.add_trace(go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name="Fiyat",
-            increasing_line_color='#00e676', decreasing_line_color='#ff3366',
-            increasing_fillcolor='rgba(0, 230, 118, 0.15)', decreasing_fillcolor='rgba(255, 51, 102, 0.15)'
+            increasing_line_color='#16a34a', decreasing_line_color='#dc2626',
+            increasing_fillcolor='rgba(22, 163, 74, 0.1)', decreasing_fillcolor='rgba(220, 38, 38, 0.1)'
         ), row=1, col=1)
 
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#ffb703', width=1.2)), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#38bdf8', width=1.2)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#d97706', width=1.5)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#2563eb', width=1.5)), row=1, col=1)
 
-        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#a855f7', width=1.2)), row=2, col=1)
-        fig.add_hline(y=70, line_dash="dash", line_color="#ff3366", opacity=0.5, row=2, col=1)
-        fig.add_hline(y=30, line_dash="dash", line_color="#00e676", opacity=0.5, row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#9333ea', width=1.5)), row=2, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="#dc2626", opacity=0.5, row=2, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="#16a34a", opacity=0.5, row=2, col=1)
 
         fig.update_layout(
-            template="plotly_dark",
+            template="plotly_white",
             height=560,
-            paper_bgcolor="#080d16",
-            plot_bgcolor="#04060a",
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#f8fafc",
             margin=dict(l=10, r=10, t=30, b=10),
             xaxis_rangeslider_visible=False,
             showlegend=True,
             legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1)
         )
-        fig.update_xaxes(gridcolor="#131c2e", zerolinecolor="#131c2e")
-        fig.update_yaxes(gridcolor="#131c2e", zerolinecolor="#131c2e")
+        fig.update_xaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
+        fig.update_yaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
 
         st.plotly_chart(fig, use_container_width=True)
     else:
