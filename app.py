@@ -282,7 +282,7 @@ def fetch_real_market_data(symbol: str):
 @st.cache_data(ttl=60)
 def get_quick_market_data():
     """Üst bant piyasa özeti."""
-    tickers = {"USD/TRY": "USDTRY=X", "EUR/TRY": "EURTRY=X", "ONS ALTIN": "GC=F", "BIST 100": "^XU100"}
+    tickers = {"USD/TRY": "USDTRY=X", "EUR/TRY": "EURTRY=X", "ONS ALTIN": "GC=F", "BIST 100": "^XU100", "THYAO": "THYAO.IS", "ASELS": "ASELS.IS", "GARAN": "GARAN.IS", "EREGL": "EREGL.IS"}
     data = {}
     session = get_browser_session()
     
@@ -408,6 +408,22 @@ with logo_and_summary_cols[1]:
         cols = st.columns(len(market_summary))
         for idx, (name, (val, chg)) in enumerate(market_summary.items()):
             cols[idx].metric(label=name, value=f"{val:,.2f}", delta=f"%{chg:+.2f}")
+
+# --- CANLI AKAN PİYASA ŞERİDİ (TICKER TAPE) ---
+if market_summary:
+    ticker_items = ""
+    for name, (val, chg) in market_summary.items():
+        color = "#16a34a" if chg >= 0 else "#dc2626"
+        sign = "+" if chg >= 0 else ""
+        ticker_items += f"<span style='margin-right: 50px; font-weight: 700; font-size: 0.85rem;'><span style='color: #64748b;'>{name}</span> <span style='color: #0f172a;'>{val:,.2f}</span> <span style='color: {color};'>({sign}{chg:.2f}%)</span></span>"
+    
+    st.markdown(f"""
+    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; overflow: hidden; white-space: nowrap; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+        <marquee behavior="scroll" direction="left" scrollamount="4" onmouseover="this.stop();" onmouseout="this.start();">
+            {ticker_items}
+        </marquee>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
 
