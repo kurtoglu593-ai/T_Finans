@@ -179,4 +179,49 @@ def fetch_data(symbol: str):
             "currency": curr,
             "df": df
         }
-    except
+    except Exception:
+        return None
+
+@st.cache_data(ttl=60)
+def get_quick_market_data():
+    tickers = {
+        "BIST 100": "^XU100",
+        "USD/TRY": "USDTRY=X",
+        "EUR/TRY": "EURTRY=X",
+        "ONS ALTIN": "GC=F"
+    }
+    data = {}
+    for name, sym in tickers.items():
+        try:
+            t = yf.Ticker(sym)
+            hist = t.history(period="2d")
+            if len(hist) >= 2:
+                last = hist['Close'].iloc[-1]
+                prev = hist['Close'].iloc[-2]
+                chg = ((last - prev) / prev) * 100
+                data[name] = (last, chg)
+            elif len(hist) == 1:
+                data[name] = (hist['Close'].iloc[-1], 0.0)
+        except Exception:
+            pass
+    return data
+
+def analyze_with_ai(user_prompt: str, market_data: dict, history: list) -> str:
+    data_str = "Canlı piyasa verisi çekilemedi."
+    if market_data:
+        last_rsi = market_data['df']['RSI'].iloc[-1] if 'RSI' in market_data['df'] else 0
+        data_str = f"Varlık: {market_data['symbol']} | Son Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f} | RSI(14): {last_rsi:.1f}"
+
+    system_instruction = (
+        "Sen 'T' adında üst düzey bir borsa ve finans analistisin. "
+        f"Canlı Piyasa Verisi: {data_str}. "
+        "Yorumlarını teknik göstergelere (RSI, SMA20, SMA50) dayanarak, kısa, net ve borsa terminali üslubuyla ver."
+    )
+
+    messages = [{"role": "system", "content": system_instruction}]
+    for msg in history[-4:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": user_prompt})
+
+    try:
+        res = client.chat.completions.create(model="llama-3.3-
