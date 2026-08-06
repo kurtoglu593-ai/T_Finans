@@ -537,7 +537,7 @@ with col_left:
     
     selected_symbol_code = selected_bist_option.split(" ")[0]
     
-        active_symbol = selected_symbol_code
+     active_symbol = selected_symbol_code
     
     market_data = fetch_real_market_data(active_symbol)
     
