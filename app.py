@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 import pandas as pd
 import streamlit as st
@@ -137,7 +138,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- YARDIMCI VE FINANSAL FONKSİYONLAR ---
+# --- FINANSAL HESAPLAMALAR VE YOK EDİLEMEZ VERİ MOTORU ---
 def sanitize_symbol(symbol: str) -> str:
     """Türk hisse senetleri için otomatik .IS eklemesi yapar."""
     if not symbol:
@@ -155,53 +156,68 @@ def calculate_rsi(series, period=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-def fetch_data_direct_api(symbol):
-    """Yahoo Finance v8 REST API üzerinden direkt JSON veri çeker (Kütüphanesiz)."""
+def fetch_data_multi_fallback(symbol):
+    """
+    Yahoo Finance v8/v7 + Alternatif Domainler üzerinden veri çeker.
+    Tek bir sunucuya bağımlı kalmaz.
+    """
     clean_symbol = sanitize_symbol(symbol)
+    
+    # Engelleri aşmak için rotating User-Agent ve Header listesi
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
     }
-    
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d"
-    
+
+    endpoints = [
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d",
+        f"https://query2.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d",
+        f"https://query1.finance.yahoo.com/v7/finance/chart/{clean_symbol}?range=6m&interval=1d"
+    ]
+
+    # Eğer .IS yoksa yedek listeye ekle
+    if not clean_symbol.endswith(".IS") and "-" not in clean_symbol and "=" not in clean_symbol:
+        alt_sym = f"{clean_symbol}.IS"
+        endpoints.append(f"https://query1.finance.yahoo.com/v8/finance/chart/{alt_sym}?range=6m&interval=1d")
+
+    data = None
+    used_symbol = clean_symbol
+
+    for url in endpoints:
+        try:
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code == 200:
+                js = res.json()
+                result = js.get('chart', {}).get('result', [])
+                if result and result[0].get('timestamp'):
+                    data = result[0]
+                    used_symbol = result[0].get('meta', {}).get('symbol', clean_symbol)
+                    break
+        except Exception:
+            continue
+
+    if not data:
+        return None
+
     try:
-        res = requests.get(url, headers=headers, timeout=10)
-        
-        # İlk deneme başarısız olursa ve .IS ekli değilse ekleyip dene
-        if res.status_code != 200 and not clean_symbol.endswith(".IS"):
-            clean_symbol = f"{clean_symbol}.IS"
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d"
-            res = requests.get(url, headers=headers, timeout=10)
-
-        if res.status_code != 200:
-            return None
-
-        data = res.json()
-        result = data.get('chart', {}).get('result', [])
-        if not result:
-            return None
-
-        chart_data = result[0]
-        timestamps = chart_data.get('timestamp', [])
-        indicators = chart_data.get('indicators', {}).get('quote', [{}])[0]
-
-        if not timestamps or not indicators.get('close'):
-            return None
+        timestamps = data.get('timestamp', [])
+        quote = data.get('indicators', {}).get('quote', [{}])[0]
 
         df = pd.DataFrame({
             'Date': pd.to_datetime(timestamps, unit='s'),
-            'Open': indicators.get('open'),
-            'High': indicators.get('high'),
-            'Low': indicators.get('low'),
-            'Close': indicators.get('close')
+            'Open': quote.get('open'),
+            'High': quote.get('high'),
+            'Low': quote.get('low'),
+            'Close': quote.get('close')
         }).dropna()
 
-        if df.empty:
+        if df.empty or len(df) < 5:
             return None
 
         df.set_index('Date', inplace=True)
         
-        # Indikatör Hesaplamaları
+        # İndikatörler
         df['SMA20'] = df['Close'].rolling(window=20).mean()
         df['SMA50'] = df['Close'].rolling(window=50).mean()
         df['RSI'] = calculate_rsi(df['Close'], 14)
@@ -209,10 +225,10 @@ def fetch_data_direct_api(symbol):
         last_p = float(df['Close'].iloc[-1])
         prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
         pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
-        curr = 'TRY' if clean_symbol.endswith('.IS') else 'USD'
+        curr = 'TRY' if used_symbol.endswith('.IS') else 'USD'
 
         return {
-            "symbol": clean_symbol,
+            "symbol": used_symbol,
             "price": last_p,
             "change": pct_chg,
             "currency": curr,
@@ -235,7 +251,7 @@ def get_quick_market_data():
     for name, sym in tickers.items():
         try:
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d"
-            res = requests.get(url, headers=headers, timeout=5)
+            res = requests.get(url, headers=headers, timeout=4)
             if res.status_code == 200:
                 json_data = res.json()
                 closes = json_data['chart']['result'][0]['indicators']['quote'][0]['close']
@@ -262,13 +278,12 @@ def analyze_with_ai(user_prompt, market_data, history, client):
             f"RSI(14): {last_rsi:.1f}"
         )
     else:
-        data_str = "UYARI: İstenen sembole ait canlı piyasa verisi çekilemedi."
+        data_str = "UYARI: İstenen sembole ait canlı piyasa verisi sunucudan çekilemedi."
 
     system_instruction = (
         "Sen 'T' adında profesyonel bir borsa ve finans analistisin. "
         "Mevcut Veri Durumu: " + data_str + " "
-        "Teknik indikatörleri temel alarak kısa, net, otoriter ve borsa terminali üslubuyla yanıt ver. "
-        "Eğer veri çekilemediyse kullanıcıya sembolü doğru girdiğinden emin olmasını bildir."
+        "Teknik indikatörleri temel alarak kısa, net, otoriter ve borsa terminali üslubuyla yanıt ver."
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -317,7 +332,7 @@ with st.sidebar:
     if st.button("🔄 GÜNCELLE"):
         symbols = [sanitize_symbol(s) for s in watchlist_input.split(",") if s.strip()]
         for sym in symbols:
-            res_data = fetch_data_direct_api(sym)
+            res_data = fetch_data_multi_fallback(sym)
             if res_data:
                 st.metric(label=res_data['symbol'], value=f"{res_data['price']:,.2f}", delta=f"%{res_data['change']:+.2f}")
             else:
@@ -355,7 +370,7 @@ with col_left:
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
     
-    market_data = fetch_data_direct_api(active_symbol)
+    market_data = fetch_data_multi_fallback(active_symbol)
     
     if market_data and market_data.get("df") is not None:
         df = market_data["df"].tail(90)
@@ -414,7 +429,7 @@ with col_right:
         
         with st.spinner("Analiz ediliyor..."):
             symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
-            current_market_data = fetch_data_direct_api(symbol) if symbol else None
+            current_market_data = fetch_data_multi_fallback(symbol) if symbol else None
             ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
             
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
