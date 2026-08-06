@@ -339,11 +339,11 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     except Exception as err:
         return f"⚠️ AI Analiz Hatası: {err}"
 
-# --- SIDEBAR (SOL MENÜ & BISTeknik LOGO) ---
+# --- SIDEBAR (SOL MENÜ & BISTeknik LOGOSU) ---
 with st.sidebar:
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; margin-top: 5px;">
-        <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 5px;">
+        <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="36" height="36" rx="8" fill="#eff6ff"/>
             <path d="M7 26L14 18L19 22L29 11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M23 11H29V17" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -352,8 +352,8 @@ with st.sidebar:
             <circle cx="29" cy="11" r="2" fill="#16a34a"/>
         </svg>
         <div>
-            <h2 style="margin:0; font-size: 1.15rem; color: #0f172a; font-weight: 800; line-height: 1;">BIST<span style="color: #2563eb;">eknik</span></h2>
-            <span style="font-size: 0.62rem; color: #64748b; font-weight: 700; letter-spacing: 0.3px;">QUANT TERMINAL</span>
+            <h2 style="margin:0; font-size: 1.25rem; color: #0f172a; font-weight: 800; line-height: 1;">BIST<span style="color: #2563eb;">eknik</span></h2>
+            <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">QUANT TERMINAL</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -381,14 +381,35 @@ if not groq_api_key:
 
 client = Groq(api_key=groq_api_key)
 
-# --- ANA EKRAN ÜST BANT ---
-market_summary = get_quick_market_data()
-if market_summary:
-    cols = st.columns(len(market_summary))
-    for idx, (name, (val, chg)) in enumerate(market_summary.items()):
-        cols[idx].metric(label=name, value=f"{val:,.2f}", delta=f"%{chg:+.2f}")
+# --- ANA EKRAN ÜST BANT (LOGO BANNER & PİYASA ÖZETİ) ---
+logo_and_summary_cols = st.columns([1.2, 2.8])
 
-st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+with logo_and_summary_cols[0]:
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 12px; background: #ffffff; padding: 10px 14px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 15px;">
+        <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="36" height="36" rx="8" fill="#eff6ff"/>
+            <path d="M7 26L14 18L19 22L29 11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M23 11H29V17" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="14" cy="18" r="2" fill="#2563eb"/>
+            <circle cx="19" cy="22" r="2" fill="#2563eb"/>
+            <circle cx="29" cy="11" r="2" fill="#16a34a"/>
+        </svg>
+        <div>
+            <h1 style="margin:0; font-size: 1.15rem; color: #0f172a; font-weight: 800; line-height: 1;">BIST<span style="color: #2563eb;">eknik</span></h1>
+            <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">AI QUANT TERMINAL</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with logo_and_summary_cols[1]:
+    market_summary = get_quick_market_data()
+    if market_summary:
+        cols = st.columns(len(market_summary))
+        for idx, (name, (val, chg)) in enumerate(market_summary.items()):
+            cols[idx].metric(label=name, value=f"{val:,.2f}", delta=f"%{chg:+.2f}")
+
+st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
 
 col_left, col_right = st.columns([1.6, 1.0], gap="small")
 
