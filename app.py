@@ -28,9 +28,9 @@ class Config:
     STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
     
     # Cache süreleri
-    CACHE_TTL_SHORT = 300   # 5 dakika
-    CACHE_TTL_MEDIUM = 3600 # 1 saat
-    CACHE_TTL_LONG = 86400  # 24 saat
+    CACHE_TTL_SHORT = 300
+    CACHE_TTL_MEDIUM = 3600
+    CACHE_TTL_LONG = 86400
     
     # Teknik indikatör parametreleri
     RSI_PERIOD = 14
@@ -38,7 +38,7 @@ class Config:
     SMA_SLOW = 50
     
     # Grafik ayarları
-    CHART_HEIGHT = 420
+    CHART_HEIGHT = 450
     MAX_HISTORY_DAYS = 90
 
 # Cloud IP Engellerini aşan Tarayıcı Taklit Modülü
@@ -102,52 +102,211 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- LIGHT MODE FINANS TEMASI ---
+# --- 📍 PROFESYONEL DARK/LIGHT KARMA TEMASI ---
 st.markdown("""
 <style>
+    /* 📍 Ana Arka Plan - Koyu Gradyan */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        background-color: #f1f5f9 !important;
-        color: #0f172a !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+        color: #f1f5f9 !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     }
-    [data-testid="stSidebar"] { background-color: #ffffff !important; border-right: 1px solid #e2e8f0 !important; }
+    
+    /* 📍 Sidebar - Cam Efektli */
+    [data-testid="stSidebar"] {
+        background: rgba(15, 23, 42, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+        box-shadow: 4px 0 30px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* 📍 Header ve Footer Gizleme */
     header, footer { display: none !important; }
-    .main .block-container { padding: 0.8rem 1.5rem !important; max-width: 99% !important; }
-    [data-testid="stVerticalBlock"] > div { background: transparent !important; border: none !important; }
-    [data-testid="stMetric"] {
-        background: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 8px !important;
-        padding: 10px 14px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    
+    /* 📍 Ana Container */
+    .main .block-container {
+        padding: 0.8rem 1.5rem !important;
+        max-width: 99% !important;
+        background: transparent !important;
     }
-    [data-testid="stMetricLabel"] { color: #64748b !important; font-size: 0.75rem !important; font-weight: 700 !important; }
-    [data-testid="stMetricValue"] { color: #0f172a !important; font-size: 1.25rem !important; font-weight: 800 !important; }
+    
+    /* 📍 Kartlar - Cam Efektli */
+    [data-testid="stMetric"], .t-panel-header, .t-card {
+        background: rgba(255, 255, 255, 0.05) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    [data-testid="stMetric"]:hover, .t-panel-header:hover {
+        border-color: rgba(37, 99, 235, 0.4) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 12px 40px rgba(37, 99, 235, 0.15) !important;
+    }
+    
+    /* 📍 Metrik Etiketleri */
+    [data-testid="stMetricLabel"] {
+        color: rgba(255, 255, 255, 0.6) !important;
+        font-size: 0.7rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+    
+    [data-testid="stMetricValue"] {
+        color: #f1f5f9 !important;
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+    
+    /* 📍 Chat Mesajları */
     [data-testid="stChatMessage"] {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-radius: 12px !important;
+        color: #f1f5f9 !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    [data-testid="stChatMessage"] [data-testid="stMarkdown"] {
+        color: #f1f5f9 !important;
+    }
+    
+    /* 📍 Chat Input */
+    [data-testid="stChatInput"] {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 12px !important;
+        color: #f1f5f9 !important;
+    }
+    
+    [data-testid="stChatInput"] input {
+        color: #f1f5f9 !important;
+    }
+    
+    /* 📍 Butonlar - Neon Efekt */
+    .stButton button {
+        background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%) !important;
+        color: #ffffff !important;
         border-radius: 8px !important;
-        color: #0f172a !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+        font-weight: 700 !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3) !important;
+        transition: all 0.3s ease !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        font-size: 0.75rem !important;
+        padding: 0.5rem 1rem !important;
     }
-    [data-testid="stChatInput"] { background-color: #ffffff !important; border: 1px solid #cbd5e1 !important; border-radius: 8px !important; }
-    .stButton button { background: #2563eb !important; color: #ffffff !important; border-radius: 6px !important; font-weight: 600 !important; }
+    
+    .stButton button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4) !important;
+    }
+    
+    /* 📍 Panel Header */
     .t-panel-header {
-        background: #ffffff; border: 1px solid #cbd5e1; border-bottom: 2px solid #2563eb;
-        border-radius: 8px 8px 0 0; padding: 8px 14px; font-size: 0.8rem; font-weight: 700; color: #1e293b;
-        display: flex; justify-content: space-between; align-items: center;
+        background: rgba(255, 255, 255, 0.04) !important;
+        border-bottom: 2px solid #2563eb !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 10px 18px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        color: #f1f5f9 !important;
+        letter-spacing: 0.5px !important;
+        margin-bottom: 0 !important;
     }
-    /* 📍 RSI metrik kartı renklendirmesi */
-    .rsi-overbought { border-left: 4px solid #dc2626 !important; }
-    .rsi-oversold { border-left: 4px solid #16a34a !important; }
-    .rsi-neutral { border-left: 4px solid #f59e0b !important; }
+    
+    .t-panel-header span:last-child {
+        color: #3b82f6 !important;
+        font-size: 0.7rem !important;
+        background: rgba(37, 99, 235, 0.15) !important;
+        padding: 4px 12px !important;
+        border-radius: 20px !important;
+    }
+    
+    /* 📍 Selectbox */
+    .stSelectbox label {
+        color: rgba(255, 255, 255, 0.7) !important;
+        font-weight: 600 !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+    
+    .stSelectbox select {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #f1f5f9 !important;
+        border-radius: 8px !important;
+    }
+    
+    /* 📍 Ticker Tape */
+    .ticker-tape {
+        background: rgba(255, 255, 255, 0.04) !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-radius: 12px !important;
+        padding: 8px 16px !important;
+        backdrop-filter: blur(10px) !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* 📍 Logo */
+    .t-logo-text {
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        font-weight: 900 !important;
+    }
+    
+    /* 📍 Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        border-radius: 10px;
+    }
+    
+    /* 📍 Loading Spinner */
+    .stSpinner > div {
+        border-color: #2563eb !important;
+    }
+    
+    /* 📍 Info/Warning Boxes */
+    .stAlert {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        backdrop-filter: blur(10px) !important;
+        color: #f1f5f9 !important;
+        border-radius: 12px !important;
+    }
+    
+    /* 📍 Metric Delta Colors */
+    [data-testid="stMetricDelta"] {
+        font-weight: 600 !important;
+        font-size: 0.8rem !important;
+    }
+    
+    /* 📍 Plotly Charts - Dark Mode */
+    .js-plotly-plot .plotly .main-svg {
+        background: transparent !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- VERİ VE YARDIMCI FONKSİYONLAR ---
 
 def sanitize_symbol(symbol: str) -> str:
-    """Sembol isimlerini borsalara uygun formata getirir."""
     if not symbol:
         return "THYAO.IS"
     symbol = symbol.strip().upper()
@@ -161,7 +320,6 @@ def sanitize_symbol(symbol: str) -> str:
     return symbol
 
 def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
-    """Metin içinden hisse/kripto/endeks kodunu yakalar."""
     text_upper = text.upper()
     if "BIST 100" in text_upper or "BIST100" in text_upper or "XU100" in text_upper:
         return "^XU100"
@@ -176,9 +334,7 @@ def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
             return sanitize_symbol(w)
     return default_sym
 
-# 📍 RSI hesaplama (Wilder yöntemi)
 def calculate_rsi(series, period=Config.RSI_PERIOD):
-    """Wilder RSI Hesaplama Motoru."""
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).ewm(alpha=1/period, adjust=False).mean()
     loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/period, adjust=False).mean()
@@ -186,9 +342,7 @@ def calculate_rsi(series, period=Config.RSI_PERIOD):
     rsi = 100 - (100 / (1 + rs))
     return rsi.fillna(50).clip(0, 100)
 
-# 📍 Trend belirleme fonksiyonu
 def determine_trend(price, sma20, sma50):
-    """Trend yönünü belirle."""
     if pd.isna(sma20) or pd.isna(sma50):
         return "BELİRSİZ", "⚖️"
     
@@ -203,9 +357,7 @@ def determine_trend(price, sma20, sma50):
     else:
         return "YATAY", "➡️"
 
-# 📍 RSI yorumu
 def get_rsi_comment(rsi_value):
-    """RSI değerine göre yorum üret."""
     if rsi_value > 70:
         return "Aşırı Alım", "inverse"
     elif rsi_value < 30:
@@ -217,11 +369,9 @@ def get_rsi_comment(rsi_value):
     else:
         return "Satım Bölgesi", "inverse"
 
-# Browser session singleton
 _browser_session = None
 
 def get_browser_session():
-    """Chrome TLS Parmak İzini taklit eden canlı oturum oluşturur (singleton)."""
     global _browser_session
     if _browser_session is None:
         if HAS_CURL_CFFI:
@@ -234,10 +384,8 @@ def get_browser_session():
         logger.info("Browser session oluşturuldu")
     return _browser_session
 
-# Retry mekanizması
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
 def fetch_bist_tradingview(symbol_raw: str):
-    """TradingView REST API - Canlı Fiyat & Gerçek Mum Trendi"""
     session = get_browser_session()
     ticker_clean = symbol_raw.replace(".IS", "").replace("^", "").upper()
     
@@ -322,7 +470,6 @@ def fetch_bist_tradingview(symbol_raw: str):
     return None
 
 def fetch_stooq_data(symbol: str):
-    """Stooq'tan veri çeker."""
     try:
         stooq_code = symbol.replace(".IS", ".TR").replace("^", "").lower()
         stooq_url = f"{Config.STOOQ_BASE_URL}?s={stooq_code}&i=d"
@@ -350,7 +497,6 @@ def fetch_stooq_data(symbol: str):
     return None
 
 def generate_mock_data(symbol: str):
-    """Demo amaçlı mock veri üretir."""
     logger.warning(f"Mock veri üretiliyor: {symbol}")
     
     dates = pd.date_range(end=datetime.datetime.now(), periods=30, freq='D')
@@ -383,7 +529,6 @@ def generate_mock_data(symbol: str):
     }
 
 def validate_market_data(data: Dict[str, Any]) -> bool:
-    """Veri bütünlüğü kontrolü."""
     required_fields = ['symbol', 'price', 'change', 'df']
     
     if not all(field in data for field in required_fields):
@@ -395,7 +540,6 @@ def validate_market_data(data: Dict[str, Any]) -> bool:
         logger.error("Veri çok kısa")
         return False
         
-    # Outlier kontrolü
     if abs(data['change']) > 20:
         logger.warning(f"Anormal değişim: {data['change']:.2f}%")
         return False
@@ -403,17 +547,14 @@ def validate_market_data(data: Dict[str, Any]) -> bool:
     return True
 
 def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Ana veri çekme fonksiyonu."""
     clean_sym = sanitize_symbol(symbol)
     logger.info(f"Veri çekiliyor: {clean_sym}")
     
     try:
-        # TradingView denemesi
         tv_res = fetch_bist_tradingview(clean_sym)
         if tv_res and validate_market_data(tv_res):
             return tv_res
             
-        # Stooq fallback
         df_stooq = fetch_stooq_data(clean_sym)
         if df_stooq is not None:
             df_stooq['SMA20'] = df_stooq['Close'].rolling(window=Config.SMA_FAST).mean()
@@ -444,7 +585,6 @@ def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Veri çekme hatası ({clean_sym}): {e}")
     
-    # Mock data
     mock_data = generate_mock_data(clean_sym)
     if validate_market_data(mock_data):
         return mock_data
@@ -453,7 +593,6 @@ def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
 
 @st.cache_data(ttl=Config.CACHE_TTL_MEDIUM)
 def get_top_volume_bist100_symbols():
-    """Borsa İstanbul'da işlem hacmi en yüksek 100 şirketi dinamik çeker."""
     session = get_browser_session()
     url = Config.TV_SCAN_URL
     payload = {
@@ -496,28 +635,20 @@ def get_top_volume_bist100_symbols():
         }
     return top_tickers
 
-# 📍 AI analiz motoru - geliştirilmiş
 def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], history: list, client) -> str:
-    """AI Analiz Motoru - Geliştirilmiş prompt."""
-    
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
         
-        # Tek bir RSI değeri
         if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]):
             last_rsi = float(df['RSI'].iloc[-1])
         else:
             last_rsi = float(calculate_rsi(df['Close'], Config.RSI_PERIOD).iloc[-1])
         
-        # SMA değerleri
         sma20 = float(df['SMA20'].iloc[-1]) if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
         sma50 = float(df['SMA50'].iloc[-1]) if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None
         
-        # Trend durumu
         last_close = float(market_data['price'])
         trend_text, trend_icon = determine_trend(last_close, sma20, sma50)
-        
-        # RSI yorumu
         rsi_comment, _ = get_rsi_comment(last_rsi)
         
         data_str = (
@@ -581,23 +712,19 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
 # --- SIDEBAR (SOL MENÜ) ---
 with st.sidebar:
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 5px;">
-        <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="36" height="36" rx="8" fill="#eff6ff"/>
-            <path d="M7 26L14 18L19 22L29 11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M23 11H29V17" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="14" cy="18" r="2" fill="#2563eb"/>
-            <circle cx="19" cy="22" r="2" fill="#2563eb"/>
-            <circle cx="29" cy="11" r="2" fill="#16a34a"/>
-        </svg>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; margin-top: 5px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+        <div style="width: 42px; height: 42px; background: linear-gradient(135deg, #2563eb, #8b5cf6); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+            ⚡
+        </div>
         <div>
-            <h2 style="margin:0; font-size: 1.25rem; color: #0f172a; font-weight: 800; line-height: 1;">BIST<span style="color: #2563eb;">eknik</span></h2>
-            <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">QUANT TERMINAL</span>
+            <h2 style="margin:0; font-size: 1.2rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; line-height: 1.2;">BISTeknik</h2>
+            <span style="font-size: 0.6rem; color: rgba(255,255,255,0.4); font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">QUANT TERMINAL v2.0</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
+    
     st.markdown("---")
-
+    
     groq_api_key = os.environ.get("GROQ_API_KEY")
     
     if not groq_api_key:
@@ -606,8 +733,8 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom:5px;'>📋 WATCHLIST (CANLI)</p>", unsafe_allow_html=True)
-    watchlist_input = st.text_input("Semboller (virgülle ayırın):", value="THYAO.IS, ASELS.IS, GARAN.IS")
+    st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>📋 CANLI WATCHLIST</p>", unsafe_allow_html=True)
+    watchlist_input = st.text_input("Semboller (virgülle ayırın):", value="THYAO.IS, ASELS.IS, GARAN.IS", label_visibility="collapsed")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -631,8 +758,8 @@ with st.sidebar:
             progress_bar.empty()
     
     with col2:
-        if st.button("🐛 DEBUG LOG", use_container_width=True):
-            st.code("Son loglar için terminale bakın", language="bash")
+        if st.button("📊 ANALİZ", use_container_width=True):
+            st.info("AI analizi için sağ panelde soru sorun")
 
 # API key kontrolü
 if not groq_api_key:
@@ -654,22 +781,19 @@ except Exception as e:
     st.stop()
 
 # --- ANA EKRAN ---
-logo_and_summary_cols = st.columns([1.5, 2.5])
+logo_and_summary_cols = st.columns([1.2, 2.8])
 
 with logo_and_summary_cols[0]:
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 16px; background: #ffffff; padding: 16px 20px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.04);">
-        <svg width="50" height="50" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="36" height="36" rx="8" fill="#eff6ff"/>
-            <path d="M7 26L14 18L19 22L29 11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M23 11H29V17" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="14" cy="18" r="2" fill="#2563eb"/>
-            <circle cx="19" cy="22" r="2" fill="#2563eb"/>
-            <circle cx="29" cy="11" r="2" fill="#16a34a"/>
-        </svg>
-        <div>
-            <h1 style="margin:0; font-size: 1.6rem; color: #0f172a; font-weight: 800; line-height: 1.1;">BIST<span style="color: #2563eb;">eknik</span></h1>
-            <span style="font-size: 0.75rem; color: #64748b; font-weight: 700; letter-spacing: 0.8px;">AI QUANT TERMINAL</span>
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px 20px; margin-bottom: 15px; backdrop-filter: blur(10px);">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #2563eb, #8b5cf6); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">
+                ⚡
+            </div>
+            <div>
+                <h1 style="margin:0; font-size: 1.4rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; line-height: 1.1;">BISTeknik</h1>
+                <span style="font-size: 0.6rem; color: rgba(255,255,255,0.3); font-weight: 500; letter-spacing: 0.5px;">AI QUANT TERMINAL</span>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -710,13 +834,13 @@ with logo_and_summary_cols[1]:
 if top_volume_data:
     ticker_items = ""
     for name, (val, chg) in top_volume_data.items():
-        color = "#16a34a" if chg >= 0 else "#dc2626"
+        color = "#22c55e" if chg >= 0 else "#ef4444"
         sign = "+" if chg >= 0 else ""
         clean_name = name.replace(".IS", "")
-        ticker_items += f"<span style='margin-right: 35px; font-weight: 700; font-size: 0.85rem;'><span style='color: #2563eb;'>📊 {clean_name}</span> <span style='color: #0f172a;'>{val:,.2f}</span> <span style='color: {color};'>({sign}{chg:.2f}%)</span></span>"
+        ticker_items += f"<span style='margin-right: 35px; font-weight: 700; font-size: 0.8rem;'><span style='color: #3b82f6;'>📊 {clean_name}</span> <span style='color: #f1f5f9;'>{val:,.2f}</span> <span style='color: {color};'>({sign}{chg:.2f}%)</span></span>"
     
     st.markdown(f"""
-    <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; overflow: hidden; white-space: nowrap; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+    <div class="ticker-tape">
         <marquee behavior="scroll" direction="left" scrollamount="5" onmouseover="this.stop();" onmouseout="this.start();">
             {ticker_items}
         </marquee>
@@ -734,7 +858,12 @@ if "messages" not in st.session_state:
 
 # SOL PANEL
 with col_left:
-    st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● REAL-TIME ENGINE</span></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='t-panel-header'>
+        <span>📊 TECHNICAL ANALYTICS ENGINE</span>
+        <span>● LIVE</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     selected_bist_option = st.selectbox(
         "🏛️ BIST 100 En Çok İşlem Gören Hisseler:",
@@ -755,9 +884,8 @@ with col_left:
         df = market_data["df"].tail(Config.MAX_HISTORY_DAYS)
         
         is_negative = market_data['change'] < 0
-        trend_color = '#dc2626' if is_negative else '#16a34a'
+        trend_color = '#ef4444' if is_negative else '#22c55e'
         
-        # RSI değerini al
         if 'RSI' in df:
             last_rsi = float(df['RSI'].iloc[-1]) if not pd.isna(df['RSI'].iloc[-1]) else 50.0
         else:
@@ -767,12 +895,20 @@ with col_left:
         mock_warning = " ⚠️ (DEMO)" if market_data.get('is_mock') else ""
         
         st.markdown(
-            f"✅ **{market_data['symbol']}** Canlı Veri{mock_warning} | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
-            f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>) | "
-            f"RSI: **{last_rsi:.1f}**",
+            f"""
+            <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px 14px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                <span style="font-weight: 700; color: #f1f5f9;">{market_data['symbol']}</span>
+                <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">Canlı Veri{mock_warning}</span>
+                <span style="float: right; font-weight: 700; color: #f1f5f9; font-family: 'JetBrains Mono', monospace;">
+                    {market_data['price']:.2f} {market_data['currency']}
+                    <span style="color: {trend_color}; margin-left: 8px;">%{market_data['change']:+.2f}</span>
+                </span>
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
+        # 📍 Plotly Dark Mode
         fig = make_subplots(
             rows=2, cols=1, 
             shared_xaxes=True, 
@@ -784,8 +920,8 @@ with col_left:
         fig.add_trace(go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name="Fiyat (Mum)",
-            increasing_line_color='#16a34a', increasing_fillcolor='#16a34a',
-            decreasing_line_color='#dc2626', decreasing_fillcolor='#dc2626'
+            increasing_line_color='#22c55e', increasing_fillcolor='#22c55e',
+            decreasing_line_color='#ef4444', decreasing_fillcolor='#ef4444'
         ), row=1, col=1)
 
         fig.add_trace(go.Scatter(
@@ -795,40 +931,48 @@ with col_left:
 
         fig.add_trace(go.Scatter(
             x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', 
-            line=dict(color='#d97706', width=1.2)
+            line=dict(color='#f59e0b', width=1.2)
         ), row=1, col=1)
         
         fig.add_trace(go.Scatter(
             x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', 
-            line=dict(color='#2563eb', width=1.2)
+            line=dict(color='#3b82f6', width=1.2)
         ), row=1, col=1)
 
         fig.add_trace(go.Scatter(
             x=df.index, y=df['RSI'], mode='lines', name='RSI', 
-            line=dict(color='#9333ea', width=1.5)
+            line=dict(color='#8b5cf6', width=1.5)
         ), row=2, col=1)
         
-        fig.add_hline(y=70, line_dash="dash", line_color="#dc2626", opacity=0.5, row=2, col=1)
-        fig.add_hline(y=30, line_dash="dash", line_color="#16a34a", opacity=0.5, row=2, col=1)
-        fig.add_hrect(y0=70, y1=100, line_width=0, fillcolor="#dc2626", opacity=0.05, row=2, col=1)
-        fig.add_hrect(y0=0, y1=30, line_width=0, fillcolor="#16a34a", opacity=0.05, row=2, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", opacity=0.3, row=2, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", opacity=0.3, row=2, col=1)
+        fig.add_hrect(y0=70, y1=100, line_width=0, fillcolor="#ef4444", opacity=0.05, row=2, col=1)
+        fig.add_hrect(y0=0, y1=30, line_width=0, fillcolor="#22c55e", opacity=0.05, row=2, col=1)
 
         fig.update_layout(
-            template="plotly_white",
+            template="plotly_dark",
             height=Config.CHART_HEIGHT,
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#f8fafc",
-            margin=dict(l=10, r=10, t=25, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(255,255,255,0.02)",
+            margin=dict(l=10, r=10, t=30, b=10),
             xaxis_rangeslider_visible=False,
             showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1)
+            legend=dict(
+                orientation="h", 
+                yanchor="bottom", 
+                y=1.01, 
+                xanchor="right", 
+                x=1,
+                font=dict(color="rgba(255,255,255,0.6)", size=10)
+            ),
+            font=dict(color="rgba(255,255,255,0.7)"),
         )
-        fig.update_xaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
-        fig.update_yaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
+        fig.update_xaxes(gridcolor="rgba(255,255,255,0.05)", zerolinecolor="rgba(255,255,255,0.05)")
+        fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)", zerolinecolor="rgba(255,255,255,0.05)")
 
         st.plotly_chart(fig, use_container_width=True, key=f"chart_{active_symbol}_{time.time()}")
         
-        # 📍 Teknik indikatör özeti
+        # 📍 Teknik indikatör özeti - Profesyonel Kartlar
         sma20_val = df['SMA20'].iloc[-1] if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
         sma50_val = df['SMA50'].iloc[-1] if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None
         
@@ -868,7 +1012,12 @@ with col_left:
 
 # SAĞ PANEL
 with col_right:
-    st.markdown("<div class='t-panel-header'><span>🤖 AI QUANT ANALYST</span><span>MODEL: 70B</span></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='t-panel-header'>
+        <span>🤖 AI QUANT ANALYST</span>
+        <span>70B</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     chat_container = st.container(height=Config.CHART_HEIGHT)
     with chat_container:
