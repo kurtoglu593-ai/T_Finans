@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas as pd
 from groq import Groq
 import os
@@ -31,9 +32,42 @@ def validate_python_code(code_string: str) -> bool:
     except SyntaxError:
         return False
 
-# --- BAŞLIK VE ANA EKRAN (Her zaman görünür) ---
+# --- BAŞLIK ---
 st.title("📈 T — Otonom Finans & Gelişim Asistanı")
 st.caption("Hem finansal analiz yapan hem de kendi kodunu geliştirebilen yapay zeka altyapısı")
+
+# --- ADIM 1: CANLI PİYASA ÖZET BANDI ---
+@st.cache_data(ttl=60)
+def get_quick_market_data():
+    tickers = {
+        "BIST100": "^XU100",
+        "Dolar/TL": "USDTRY=X",
+        "Euro/TL": "EURTRY=X",
+        "Altın ($)": "GC=F"
+    }
+    data = {}
+    for name, sym in tickers.items():
+        try:
+            t = yf.Ticker(sym)
+            hist = t.history(period="2d")
+            if len(hist) >= 2:
+                last = hist['Close'].iloc[-1]
+                prev = hist['Close'].iloc[-2]
+                chg = ((last - prev) / prev) * 100
+                data[name] = (last, chg)
+            elif len(hist) == 1:
+                data[name] = (hist['Close'].iloc[-1], 0.0)
+        except Exception:
+            pass
+    return data
+
+market_summary = get_quick_market_data()
+if market_summary:
+    cols = st.columns(len(market_summary))
+    for idx, (name, (val, chg)) in enumerate(market_summary.items()):
+        cols[idx].metric(label=name, value=f"{val:,.2f}", delta=f"%{chg:+.2f}")
+
+st.divider()
 
 # --- YAN MENÜ VE API KONTROLÜ ---
 with st.sidebar:
@@ -51,7 +85,6 @@ with st.sidebar:
         else:
             st.warning("Yedek bulunamadı.")
 
-# API Key Kontrolü Uyarısı
 if not groq_api_key:
     st.info("👈 **Başlamak için:** Sol taraftaki menüden **Groq API Key** anahtarınızı girin.")
     st.stop()
@@ -98,13 +131,26 @@ def evolve_self(user_instruction: str) -> str:
     except Exception as e:
         return f"❌ Hata: {e}"
 
-# --- FİNANSAL ANALİZ ---
+# --- ADIM 2: TEKNİK GÖSTERGELER VE FİNANSAL ANALİZ ---
+def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
 def fetch_data(symbol: str):
     try:
         ticker = yf.Ticker(symbol)
         df = ticker.history(period="6m")
         if df.empty:
             return None
+        
+        # SMA ve RSI Hesaplamaları
+        df['SMA20'] = df['Close'].rolling(window=20).mean()
+        df['SMA50'] = df['Close'].rolling(window=50).mean()
+        df['RSI'] = calculate_rsi(df['Close'], 14)
+
         info = ticker.fast_info
         return {
             "symbol": symbol,
@@ -119,9 +165,10 @@ def fetch_data(symbol: str):
 def analyze_with_ai(user_prompt: str, market_data: dict, history: list) -> str:
     data_str = "Canlı piyasa verisi yok."
     if market_data:
-        data_str = f"Varlık: {market_data['symbol']} | Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f}"
+        last_rsi = market_data['df']['RSI'].iloc[-1] if 'RSI' in market_data['df'] else 0
+        data_str = f"Varlık: {market_data['symbol']} | Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f} | Son RSI(14): {last_rsi:.1f}"
 
-    system_instruction = f"Sen 'T' adında finans uzmanısın. Canlı Veri: {data_str}. Türkçe yanıt ver."
+    system_instruction = f"Sen 'T' adında uzman bir finans analistisin. Canlı Veri: {data_str}. Teknik göstergeleri (RSI, Hareketli Ortalamalar) değerlendirerek Türkçe profesyonel yanıt ver."
 
     messages = [{"role": "system", "content": system_instruction}]
     for msg in history[-4:]:
@@ -143,10 +190,10 @@ def detect_symbol_with_ai(user_input: str, history: list) -> str:
     except Exception:
         return None
 
-# --- SOHBET VE EKRAN ---
+# --- SOHBET VE EKRAN YÖNETİMİ ---
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Merhaba! Ben **T**.\n- Finansal sorular sorabilirsiniz (`THY yorumu`, `Bitcoin analizi` vb.)\n- Koda özellik ekletebilirsiniz (`Kendine dolar/euro canlı kur bandı ekle`)"}
+        {"role": "assistant", "content": "Merhaba! Ben **T**.\n- Finansal sorular sorabilirsiniz (`THY analizi`, `Bitcoin RSI durumu` vb.)\n- Koduma özellik ekletebilirsiniz."}
     ]
 
 for msg in st.session_state.messages:
@@ -167,16 +214,41 @@ if prompt := st.chat_input("T'ye bir soru sorun veya kod güncellemesi isteyin..
                 if "başarıyla güncellendi" in status_msg:
                     st.rerun()
         else:
-            with st.spinner("T verileri inceliyor..."):
+            with st.spinner("T teknik verileri inceliyor..."):
                 symbol = detect_symbol_with_ai(prompt, st.session_state.messages)
                 market_data = fetch_data(symbol) if symbol else None
                 ai_response = analyze_with_ai(prompt, market_data, st.session_state.messages)
                 st.markdown(ai_response)
 
+                # ADIM 2 GÖRSELLEŞTİRME: CANDLESTICK + SMA20/50 + RSI
                 if market_data and market_data.get("df") is not None:
-                    df = market_data["df"].tail(60)
-                    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'])])
-                    fig.update_layout(title=f"{market_data['symbol']} Fiyat Grafiği", height=350, xaxis_rangeslider_visible=False)
+                    df = market_data["df"].tail(90)
+                    
+                    fig = make_subplots(
+                        rows=2, cols=1, 
+                        shared_xaxes=True, 
+                        vertical_spacing=0.08, 
+                        subplot_titles=(f"{market_data['symbol']} Fiyat & SMA", "RSI (14)"),
+                        row_heights=[0.7, 0.3]
+                    )
+
+                    # Mum Grafiği
+                    fig.add_trace(go.Candlestick(
+                        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Fiyat"
+                    ), row=1, col=1)
+
+                    # SMA 20 ve SMA 50
+                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='orange', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='blue', width=1.5)), row=1, col=1)
+
+                    # RSI Grafiği
+                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='purple', width=1.5)), row=2, col=1)
+
+                    # RSI Referans Çizgileri (30 & 70)
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+
+                    fig.update_layout(height=500, xaxis_rangeslider_visible=False, showlegend=True)
                     st.plotly_chart(fig, use_container_width=True)
 
                 st.session_state.messages.append({"role": "assistant", "content": ai_response})
