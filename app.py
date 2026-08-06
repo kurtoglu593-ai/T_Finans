@@ -8,7 +8,6 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 from groq import Groq
-import yfinance as yf
 
 # Cloud IP Engellerini (HTTP 403/401) aşan Tarayıcı Taklit Modülü
 try:
@@ -20,6 +19,43 @@ except ImportError:
 
 # Model Tanımlamaları
 MODEL_70B = "llama-3.3-70b-versatile"
+
+# BİST 100 EN ÇOK İŞLEM GÖREN İLK 100 HİSSE LİSTESİ
+BIST_100_LIST = [
+    "THYAO.IS - Türk Hava Yolları", "GARAN.IS - Garanti BBVA", "EREGL.IS - Ereğli Demir Çelik",
+    "AKBNK.IS - Akbank", "ISCTR.IS - İş Bankası (C)", "YKBNK.IS - Yapı Kredi Bankası",
+    "TUPRS.IS - Tüpraş", "KCHOL.IS - Koç Holding", "SAHOL.IS - Sabancı Holding",
+    "BIMAS.IS - BİM Mağazalar", "ASELS.IS - Aselsan", "SISE.IS - Şişecam",
+    "TCELL.IS - Turkcell", "KRDMD.IS - Kardemir (D)", "PETKM.IS - Petkim",
+    "FROTO.IS - Ford Otosan", "TOASO.IS - Tofaş Oto", "PGSUS.IS - Pegasus",
+    "ENKAI.IS - Enka İnşaat", "HEKTAS.IS - Hektaş", "SASA.IS - Sasa Polyester",
+    "GUBRF.IS - Gübre Fabrikaları", "KOZAL.IS - Koza Altın", "KOZAA.IS - Koza Madencilik",
+    "IPEKE.IS - İpek Doğal Enerji", "ODAS.IS - Odaş Elektrik", "ALARK.IS - Alarko Holding",
+    "ARCLK.IS - Arçelik", "MAVI.IS - Mavi Giyim", "ASTOR.IS - Astor Enerji",
+    "EUPWR.IS - Europower Enerji", "KONTR.IS - Kontrolmatik", "GESAN.IS - Girişim Elektrik",
+    "ALFAS.IS - Alfa Solar Enerji", "BRSAN.IS - Borusan Mannesmann", "VAKBN.IS - Vakıfbank",
+    "HALKB.IS - Halkbank", "TSKB.IS - T.S.K.B.", "DOHOL.IS - Doğan Holding",
+    "MGROS.IS - Migros Ticaret", "SOKM.IS - Şok Marketler", "CCOLA.IS - Coca-Cola İçecek",
+    "AEFES.IS - Anadolu Efes", "TURSG.IS - Türkiye Sigorta", "TAVHL.IS - TAV Havalimanları",
+    "DOAS.IS - Doğuş Otomotiv", "OTKAR.IS - Otokar", "KORDS.IS - Kordsa Teknik",
+    "BRISA.IS - Brisa", "EGEEN.IS - Ege Endüstri", "KONYA.IS - Konya Çimento",
+    "BFREN.IS - Bosch Fren", "OYAKC.IS - Oyak Çimento", "CIMSA.IS - Çimsa",
+    "AKSA.IS - Aksa Akrilik", "VESBE.IS - Vestel Beyaz Eşya", "VESTL.IS - Vestel Elektronik",
+    "ARDYZ.IS - ARD Bilişim", "REEDR.IS - Reeder Teknoloji", "MIATK.IS - Mia Teknoloji",
+    "TABGD.IS - TAB Gıda", "SDTTR.IS - SDT Uzay ve Savunma", "CWENE.IS - CW Enerji",
+    "BOBET.IS - Boğaziçi Beton", "QUAGR.IS - Qua Granite", "BIENP.IS - Bien Yapı Seramik",
+    "EBEBK.IS - ebebek", "AGROT.IS - Agrotech", "CANTE.IS - Çan2 Termik",
+    "KCAER.IS - Kocaer Çelik", "SMRTG.IS - Smart Güneş Enerjisi", "GENIL.IS - Gen İlaç",
+    "ECILC.IS - Eczacıbaşı İlaç", "DEVA.IS - Deva Holding", "ISMEN.IS - İş Yatırım",
+    "OYAKC.IS - Oyak Çimento", "NUHCM.IS - Nuh Çimento", "Bursa Çimento - BUCIM.IS",
+    "SELEC.IS - Selçuk Ecza", "DMSAS.IS - Demisaş Döküm", "PARSN.IS - Parsan",
+    "CEMTS.IS - Çemtaş", "ALCTL.IS - Alcatel Lucent", "KAREL.IS - Karel Elektronik",
+    "NETAS.IS - Netaş Telekom", "LOGOS.IS - Logo Yazılım", "INDES.IS - İndeks Bilgisayar",
+    "DESPC.IS - Despec Bilgisayar", "DGATE.IS - Datagate Bilgisayar", "PENTA.IS - Penta Teknoloji",
+    "TKFEN.IS - Tekfen Holding", "ZOREN.IS - Zorlu Enerji", "AKENR.IS - Akenerji",
+    "AYDEM.IS - Aydem Enerji", "GWIND.IS - Galata Wind", "BIOEN.IS - Biotrend Enerji",
+    "CONSE.IS - Consus Enerji", "IMASM.IS - İmaş Makina", "AHGAZ.IS - Ahlatcı Doğalgaz"
+]
 
 # Plotly Tema Ayarı
 pio.templates.default = "plotly_white"
@@ -176,13 +212,11 @@ def fetch_real_market_data(symbol: str):
     clean_sym = sanitize_symbol(symbol)
     df = None
 
-    # MOTOR 1: TradingView API (BIST & Endeksler)
     if clean_sym.endswith(".IS") or clean_sym in ["^XU100", "BIST100"]:
         tv_res = fetch_bist_tradingview(clean_sym)
         if tv_res:
             return tv_res
 
-    # MOTOR 2: Stooq CSV Direct
     try:
         stooq_code = clean_sym.replace(".IS", ".TR").replace("^", "").lower()
         stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
@@ -191,7 +225,7 @@ def fetch_real_market_data(symbol: str):
         if not df_stooq.empty and 'Close' in df_stooq.columns and len(df_stooq) > 5:
             df_stooq['Date'] = pd.to_datetime(df_stooq['Date'])
             df_stooq.set_index('Date', inplace=True)
-            df_stooq.sort_index(inplace=True) # Tarihe göre sıralamayı garanti et
+            df_stooq.sort_index(inplace=True)
             for col in ['Open', 'High', 'Low', 'Close']:
                 df_stooq[col] = pd.to_numeric(df_stooq[col], errors='coerce')
             df_stooq.dropna(subset=['Close'], inplace=True)
@@ -199,31 +233,6 @@ def fetch_real_market_data(symbol: str):
                 df = df_stooq
     except Exception:
         df = None
-
-    # MOTOR 3: Yahoo REST API
-    if df is None or df.empty:
-        session = get_browser_session()
-        try:
-            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d"
-            res = session.get(url, timeout=5)
-            if res.status_code == 200:
-                result = res.json().get('chart', {}).get('result', [])
-                if result and result[0].get('timestamp'):
-                    timestamps = result[0]['timestamp']
-                    quote = result[0]['indicators']['quote'][0]
-                    df_res = pd.DataFrame({
-                        'Date': pd.to_datetime(timestamps, unit='s'),
-                        'Open': quote.get('open'),
-                        'High': quote.get('high'),
-                        'Low': quote.get('low'),
-                        'Close': quote.get('close')
-                    }).dropna()
-                    if not df_res.empty:
-                        df_res.set_index('Date', inplace=True)
-                        df_res.sort_index(inplace=True)
-                        df = df_res
-        except Exception:
-            df = None
 
     if df is None or df.empty or len(df) < 5:
         return None
@@ -286,7 +295,7 @@ def analyze_with_ai(user_prompt, market_data, history, client):
             f"- Direnç Seviyesi: {market_data['resistance']:.2f} {market_data['currency']}"
         )
     else:
-        data_str = "UYARI: Canlı veri çekilemedi. Kullanıcıya verinin anlık olarak alınamadığını ve analiz yapılamadığını bildir."
+        data_str = "UYARI: Canlı veri çekilemedi."
 
     system_instruction = (
         "Sen 'T' adında profesyonel bir quant borsa analistisin.\n"
@@ -348,17 +357,28 @@ col_left, col_right = st.columns([1.6, 1.0], gap="small")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "⚡ **T Terminal Çevrimiçi.** Bir hisse/kripto/endeks yazın (Örn: `THYAO`, `BIST100`, `BTC-USD`)."}
+        {"role": "assistant", "content": "⚡ **T Terminal Çevrimiçi.** Bir hisse/kripto/endeks seçin veya yazın."}
     ]
 
-# GÜNCEL AKTİF SEMBOL TESPİTİ
-last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
-active_symbol = extract_symbol_fast(last_user_query, default_sym="THYAO.IS")
-market_data = fetch_real_market_data(active_symbol)
-
-# SOL PANEL (GRAFİK ENGINE)
+# SOL PANEL (GRAFİK ENGINE & BIST 100 HİSSE LİSTESİ)
 with col_left:
     st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● REAL-TIME ENGINE</span></div>", unsafe_allow_html=True)
+    
+    # BİST 100 Hızlı Seçim Kutusu
+    selected_bist_option = st.selectbox(
+        "🏛️ BIST 100 En Çok İşlem Gören Hisseler:",
+        options=BIST_100_LIST,
+        index=0
+    )
+    
+    # Seçilen hissenin sembolünü ayrıştır (Örn: "THYAO.IS - Türk Hava Yolları" -> "THYAO.IS")
+    selected_symbol_code = selected_bist_option.split(" ")[0]
+    
+    # Son kullanıcı mesajı varsa ve yeni yazıldıysa onu kullan, yoksa menüden seçileni al
+    last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), selected_symbol_code)
+    active_symbol = extract_symbol_fast(last_user_query, default_sym=selected_symbol_code)
+    
+    market_data = fetch_real_market_data(active_symbol)
     
     if market_data and market_data.get("df") is not None:
         df = market_data["df"].tail(90)
@@ -389,7 +409,7 @@ with col_left:
 
         fig.update_layout(
             template="plotly_white",
-            height=540,
+            height=520,
             paper_bgcolor="#ffffff",
             plot_bgcolor="#f8fafc",
             margin=dict(l=10, r=10, t=30, b=10),
