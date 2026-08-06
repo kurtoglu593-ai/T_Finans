@@ -1,5 +1,4 @@
 import os
-import json
 import requests
 import pandas as pd
 import streamlit as st
@@ -26,7 +25,6 @@ st.set_page_config(
 # --- FERAH VE AYDINLIK FİNANS TEMASI (LIGHT MODE CSS) ---
 st.markdown("""
 <style>
-    /* Global Aydınlık Zemin ve Font Yapısı */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
@@ -45,13 +43,11 @@ st.markdown("""
         max-width: 99% !important;
     }
 
-    /* Streamlit Varsayılan Kutu Temizleme */
     [data-testid="stVerticalBlock"] > div {
         background: transparent !important;
         border: none !important;
     }
 
-    /* Metrik Kartları */
     [data-testid="stMetric"] {
         background: #ffffff !important;
         border: 1px solid #cbd5e1 !important;
@@ -70,7 +66,6 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* Chat Balonları ve Uyarı Kutuları */
     [data-testid="stChatMessage"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
@@ -86,7 +81,6 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* Input Alanları */
     [data-testid="stChatInput"] {
         background-color: #ffffff !important;
         border: 1px solid #cbd5e1 !important;
@@ -105,7 +99,6 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* Buton Stilleri */
     .stButton button {
         background: #2563eb !important;
         color: #ffffff !important;
@@ -120,7 +113,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Özel Başlık Kartları */
     .t-panel-header {
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -138,9 +130,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- FINANSAL HESAPLAMALAR VE YOK EDİLEMEZ VERİ MOTORU ---
+# --- YARDIMCI VE FINANSAL FONKSİYONLAR ---
 def sanitize_symbol(symbol: str) -> str:
-    """Türk hisse senetleri için otomatik .IS eklemesi yapar."""
     if not symbol:
         return "THYAO.IS"
     symbol = symbol.strip().upper()
@@ -156,113 +147,141 @@ def calculate_rsi(series, period=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-def fetch_data_multi_fallback(symbol):
-    """
-    Yahoo Finance v8/v7 + Alternatif Domainler üzerinden veri çeker.
-    Tek bir sunucuya bağımlı kalmaz.
-    """
-    clean_symbol = sanitize_symbol(symbol)
-    
-    # Engelleri aşmak için rotating User-Agent ve Header listesi
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
-    }
-
-    endpoints = [
-        f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d",
-        f"https://query2.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d",
-        f"https://query1.finance.yahoo.com/v7/finance/chart/{clean_symbol}?range=6m&interval=1d"
-    ]
-
-    # Eğer .IS yoksa yedek listeye ekle
-    if not clean_symbol.endswith(".IS") and "-" not in clean_symbol and "=" not in clean_symbol:
-        alt_sym = f"{clean_symbol}.IS"
-        endpoints.append(f"https://query1.finance.yahoo.com/v8/finance/chart/{alt_sym}?range=6m&interval=1d")
-
-    data = None
-    used_symbol = clean_symbol
-
-    for url in endpoints:
-        try:
-            res = requests.get(url, headers=headers, timeout=5)
-            if res.status_code == 200:
-                js = res.json()
-                result = js.get('chart', {}).get('result', [])
-                if result and result[0].get('timestamp'):
-                    data = result[0]
-                    used_symbol = result[0].get('meta', {}).get('symbol', clean_symbol)
-                    break
-        except Exception:
-            continue
-
-    if not data:
-        return None
-
+# YAHOO CRUMB & COOKIE SESSION OLUSTURUCU
+@st.cache_resource(ttl=3600)
+def get_yahoo_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    })
+    crumb = None
     try:
-        timestamps = data.get('timestamp', [])
-        quote = data.get('indicators', {}).get('quote', [{}])[0]
+        session.get("https://fc.yahoo.com", timeout=5)
+        res = session.get("https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=5)
+        if res.status_code == 200 and res.text:
+            crumb = res.text.strip()
+    except Exception:
+        pass
+    return session, crumb
 
-        df = pd.DataFrame({
-            'Date': pd.to_datetime(timestamps, unit='s'),
-            'Open': quote.get('open'),
-            'High': quote.get('high'),
-            'Low': quote.get('low'),
-            'Close': quote.get('close')
-        }).dropna()
-
-        if df.empty or len(df) < 5:
+# BINANCE DIRECT API (KRİPTOLAR İÇİN KESİNTİSİZ)
+def fetch_binance_crypto(symbol):
+    try:
+        clean_pair = symbol.replace("-", "").replace("USD", "USDT")
+        url = f"https://api.binance.com/api/v3/klines?symbol={clean_pair}&interval=1d&limit=180"
+        res = requests.get(url, timeout=5)
+        if res.status_code != 200:
             return None
-
-        df.set_index('Date', inplace=True)
+        data = res.json()
         
-        # İndikatörler
+        dates, opens, highs, lows, closes = [], [], [], [], []
+        for kline in data:
+            dates.append(pd.to_datetime(kline[0], unit='ms'))
+            opens.append(float(kline[1]))
+            highs.append(float(kline[2]))
+            lows.append(float(kline[3]))
+            closes.append(float(kline[4]))
+
+        df = pd.DataFrame({'Open': opens, 'High': highs, 'Low': lows, 'Close': closes}, index=dates)
         df['SMA20'] = df['Close'].rolling(window=20).mean()
         df['SMA50'] = df['Close'].rolling(window=50).mean()
         df['RSI'] = calculate_rsi(df['Close'], 14)
 
         last_p = float(df['Close'].iloc[-1])
-        prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
-        pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
-        curr = 'TRY' if used_symbol.endswith('.IS') else 'USD'
+        prev_p = float(df['Close'].iloc[-2])
+        pct_chg = ((last_p - prev_p) / prev_p) * 100.0
 
         return {
-            "symbol": used_symbol,
+            "symbol": symbol,
             "price": last_p,
             "change": pct_chg,
-            "currency": curr,
+            "currency": "USD",
             "df": df
         }
     except Exception:
         return None
 
+# GENEL VERİ ÇEKİCİ (KRİPTO + BORSA)
+def fetch_market_data(symbol):
+    clean_sym = sanitize_symbol(symbol)
+    
+    # 1. Kripto ise doğrudan Binance API dene
+    if "BTC" in clean_sym or "ETH" in clean_sym or "-USD" in clean_sym:
+        crypto_res = fetch_binance_crypto(clean_sym)
+        if crypto_res:
+            return crypto_res
+
+    # 2. Hisse senetleri (BIST) için Crumb'lı Yahoo API kullan
+    session, crumb = get_yahoo_session()
+    crumb_param = f"&crumb={crumb}" if crumb else ""
+    
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d{crumb_param}"
+    
+    try:
+        res = session.get(url, timeout=6)
+        if res.status_code != 200 and not clean_sym.endswith(".IS"):
+            clean_sym = f"{clean_sym}.IS"
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d{crumb_param}"
+            res = session.get(url, timeout=6)
+
+        if res.status_code == 200:
+            js = res.json()
+            result = js.get('chart', {}).get('result', [])
+            if result and result[0].get('timestamp'):
+                data = result[0]
+                timestamps = data.get('timestamp', [])
+                quote = data.get('indicators', {}).get('quote', [{}])[0]
+
+                df = pd.DataFrame({
+                    'Date': pd.to_datetime(timestamps, unit='s'),
+                    'Open': quote.get('open'),
+                    'High': quote.get('high'),
+                    'Low': quote.get('low'),
+                    'Close': quote.get('close')
+                }).dropna()
+
+                if not df.empty:
+                    df.set_index('Date', inplace=True)
+                    df['SMA20'] = df['Close'].rolling(window=20).mean()
+                    df['SMA50'] = df['Close'].rolling(window=50).mean()
+                    df['RSI'] = calculate_rsi(df['Close'], 14)
+
+                    last_p = float(df['Close'].iloc[-1])
+                    prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
+                    pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
+                    curr = 'TRY' if clean_sym.endswith('.IS') else 'USD'
+
+                    return {
+                        "symbol": clean_sym,
+                        "price": last_p,
+                        "change": pct_chg,
+                        "currency": curr,
+                        "df": df
+                    }
+    except Exception:
+        pass
+
+    return None
+
 @st.cache_data(ttl=120)
 def get_quick_market_data():
-    tickers = {
-        "USD/TRY": "USDTRY=X",
-        "EUR/TRY": "EURTRY=X",
-        "ONS ALTIN": "GC=F",
-        "BIST 100": "^XU100"
-    }
+    tickers = {"USD/TRY": "USDTRY=X", "EUR/TRY": "EURTRY=X", "ONS ALTIN": "GC=F", "BIST 100": "^XU100"}
     data = {}
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    session, crumb = get_yahoo_session()
+    crumb_param = f"&crumb={crumb}" if crumb else ""
     
     for name, sym in tickers.items():
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d"
-            res = requests.get(url, headers=headers, timeout=4)
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d{crumb_param}"
+            res = session.get(url, timeout=4)
             if res.status_code == 200:
-                json_data = res.json()
-                closes = json_data['chart']['result'][0]['indicators']['quote'][0]['close']
-                valid_closes = [c for c in closes if c is not None]
-                if len(valid_closes) >= 2:
-                    last = float(valid_closes[-1])
-                    prev = float(valid_closes[-2])
-                    chg = ((last - prev) / prev) * 100
-                    data[name] = (last, chg)
-                elif len(valid_closes) == 1:
-                    data[name] = (float(valid_closes[-1]), 0.0)
+                closes = res.json()['chart']['result'][0]['indicators']['quote'][0]['close']
+                valid = [c for c in closes if c is not None]
+                if len(valid) >= 2:
+                    last, prev = float(valid[-1]), float(valid[-2])
+                    data[name] = (last, ((last - prev) / prev) * 100)
         except Exception:
             pass
     return data
@@ -278,7 +297,7 @@ def analyze_with_ai(user_prompt, market_data, history, client):
             f"RSI(14): {last_rsi:.1f}"
         )
     else:
-        data_str = "UYARI: İstenen sembole ait canlı piyasa verisi sunucudan çekilemedi."
+        data_str = "UYARI: Sembol canlı verisi sunucudan alınamadı."
 
     system_instruction = (
         "Sen 'T' adında profesyonel bir borsa ve finans analistisin. "
@@ -292,11 +311,7 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     messages.append({"role": "user", "content": user_prompt})
 
     try:
-        res = client.chat.completions.create(
-            model=MODEL_70B,
-            messages=messages,
-            temperature=0.2
-        )
+        res = client.chat.completions.create(model=MODEL_70B, messages=messages, temperature=0.2)
         return res.choices[0].message.content
     except Exception as err:
         return f"⚠️ Analiz Hatası: {err}"
@@ -332,7 +347,7 @@ with st.sidebar:
     if st.button("🔄 GÜNCELLE"):
         symbols = [sanitize_symbol(s) for s in watchlist_input.split(",") if s.strip()]
         for sym in symbols:
-            res_data = fetch_data_multi_fallback(sym)
+            res_data = fetch_market_data(sym)
             if res_data:
                 st.metric(label=res_data['symbol'], value=f"{res_data['price']:,.2f}", delta=f"%{res_data['change']:+.2f}")
             else:
@@ -370,7 +385,7 @@ with col_left:
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
     
-    market_data = fetch_data_multi_fallback(active_symbol)
+    market_data = fetch_market_data(active_symbol)
     
     if market_data and market_data.get("df") is not None:
         df = market_data["df"].tail(90)
@@ -429,7 +444,7 @@ with col_right:
         
         with st.spinner("Analiz ediliyor..."):
             symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
-            current_market_data = fetch_data_multi_fallback(symbol) if symbol else None
+            current_market_data = fetch_market_data(symbol) if symbol else None
             ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
             
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
