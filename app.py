@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 📍 Config sınıfı eklendi
+# 📍 Config sınıfı
 class Config:
     # API ayarları
     GROQ_MODEL = "llama-3.3-70b-versatile"
@@ -41,7 +41,7 @@ class Config:
     CHART_HEIGHT = 420
     MAX_HISTORY_DAYS = 90
 
-# Cloud IP Engellerini (HTTP 403/401) aşan Tarayıcı Taklit Modülü
+# Cloud IP Engellerini aşan Tarayıcı Taklit Modülü
 try:
     from curl_cffi import requests as cffi_requests
     HAS_CURL_CFFI = True
@@ -137,6 +137,10 @@ st.markdown("""
         border-radius: 8px 8px 0 0; padding: 8px 14px; font-size: 0.8rem; font-weight: 700; color: #1e293b;
         display: flex; justify-content: space-between; align-items: center;
     }
+    /* 📍 RSI metrik kartı renklendirmesi */
+    .rsi-overbought { border-left: 4px solid #dc2626 !important; }
+    .rsi-oversold { border-left: 4px solid #16a34a !important; }
+    .rsi-neutral { border-left: 4px solid #f59e0b !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -172,22 +176,48 @@ def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
             return sanitize_symbol(w)
     return default_sym
 
-# 📍 RSI hesaplama düzeltildi (Wilder yöntemi)
+# 📍 RSI hesaplama (Wilder yöntemi)
 def calculate_rsi(series, period=Config.RSI_PERIOD):
-    """Wilder RSI Hesaplama Motoru (düzeltilmiş)."""
+    """Wilder RSI Hesaplama Motoru."""
     delta = series.diff()
-    
-    # Wilder yöntemi için düzeltme
     gain = (delta.where(delta > 0, 0)).ewm(alpha=1/period, adjust=False).mean()
     loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/period, adjust=False).mean()
-    
-    # Sıfıra bölünme hatasını önle
     rs = gain / loss.where(loss != 0, 0.00001)
     rsi = 100 - (100 / (1 + rs))
-    
     return rsi.fillna(50).clip(0, 100)
 
-# 📍 Browser session singleton pattern
+# 📍 Trend belirleme fonksiyonu
+def determine_trend(price, sma20, sma50):
+    """Trend yönünü belirle."""
+    if pd.isna(sma20) or pd.isna(sma50):
+        return "BELİRSİZ", "⚖️"
+    
+    if price > sma20 and price > sma50:
+        return "GÜÇLÜ YÜKSELİŞ", "📈"
+    elif price > sma20:
+        return "YÜKSELİŞ", "📈"
+    elif price < sma20 and price < sma50:
+        return "GÜÇLÜ DÜŞÜŞ", "📉"
+    elif price < sma20:
+        return "DÜŞÜŞ", "📉"
+    else:
+        return "YATAY", "➡️"
+
+# 📍 RSI yorumu
+def get_rsi_comment(rsi_value):
+    """RSI değerine göre yorum üret."""
+    if rsi_value > 70:
+        return "Aşırı Alım", "inverse"
+    elif rsi_value < 30:
+        return "Aşırı Satım", "normal"
+    elif 40 <= rsi_value <= 60:
+        return "Nötr", "off"
+    elif rsi_value > 60:
+        return "Alım Bölgesi", "normal"
+    else:
+        return "Satım Bölgesi", "inverse"
+
+# Browser session singleton
 _browser_session = None
 
 def get_browser_session():
@@ -204,7 +234,7 @@ def get_browser_session():
         logger.info("Browser session oluşturuldu")
     return _browser_session
 
-# 📍 Retry mekanizması eklendi
+# Retry mekanizması
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
 def fetch_bist_tradingview(symbol_raw: str):
     """TradingView REST API - Canlı Fiyat & Gerçek Mum Trendi"""
@@ -291,7 +321,6 @@ def fetch_bist_tradingview(symbol_raw: str):
     
     return None
 
-# 📍 Stooq veri çekme ayrıştırıldı
 def fetch_stooq_data(symbol: str):
     """Stooq'tan veri çeker."""
     try:
@@ -320,7 +349,6 @@ def fetch_stooq_data(symbol: str):
     
     return None
 
-# 📍 Mock veri üretimi (demo için)
 def generate_mock_data(symbol: str):
     """Demo amaçlı mock veri üretir."""
     logger.warning(f"Mock veri üretiliyor: {symbol}")
@@ -354,7 +382,6 @@ def generate_mock_data(symbol: str):
         "is_mock": True
     }
 
-# 📍 Veri doğrulama eklendi
 def validate_market_data(data: Dict[str, Any]) -> bool:
     """Veri bütünlüğü kontrolü."""
     required_fields = ['symbol', 'price', 'change', 'df']
@@ -369,15 +396,14 @@ def validate_market_data(data: Dict[str, Any]) -> bool:
         return False
         
     # Outlier kontrolü
-    if abs(data['change']) > 20:  # %20'den fazla değişim şüpheli
+    if abs(data['change']) > 20:
         logger.warning(f"Anormal değişim: {data['change']:.2f}%")
         return False
         
     return True
 
-# 📍 Ana veri çekme fonksiyonu geliştirildi
 def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """SADECE GERÇEK CANLI VERİ ÇEKER (gelişmiş hata yönetimi)."""
+    """Ana veri çekme fonksiyonu."""
     clean_sym = sanitize_symbol(symbol)
     logger.info(f"Veri çekiliyor: {clean_sym}")
     
@@ -418,14 +444,13 @@ def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Veri çekme hatası ({clean_sym}): {e}")
     
-    # Hiç veri yoksa mock data döndür (demo için)
+    # Mock data
     mock_data = generate_mock_data(clean_sym)
     if validate_market_data(mock_data):
         return mock_data
         
     return None
 
-# 📍 Cache süreleri optimize edildi
 @st.cache_data(ttl=Config.CACHE_TTL_MEDIUM)
 def get_top_volume_bist100_symbols():
     """Borsa İstanbul'da işlem hacmi en yüksek 100 şirketi dinamik çeker."""
@@ -460,7 +485,6 @@ def get_top_volume_bist100_symbols():
     except Exception as e:
         logger.error(f"Hacim sıralaması hatası: {e}")
     
-    # Fallback
     if not top_tickers:
         logger.warning("TradingView hacim sıralaması boş, fallback kullanılıyor")
         top_tickers = {
@@ -472,59 +496,66 @@ def get_top_volume_bist100_symbols():
         }
     return top_tickers
 
-# 📍 AI analiz motoru geliştirildi
+# 📍 AI analiz motoru - geliştirilmiş
 def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], history: list, client) -> str:
-    """AI Analiz Motoru (Geliştirilmiş Teknik Analiz Kuralları)."""
+    """AI Analiz Motoru - Geliştirilmiş prompt."""
     
-    # Market verisi kontrolü
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
         
-        # RSI hesaplama
+        # Tek bir RSI değeri
         if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]):
             last_rsi = float(df['RSI'].iloc[-1])
         else:
-            last_rsi = calculate_rsi(df['Close'], Config.RSI_PERIOD).iloc[-1]
-            last_rsi = float(last_rsi) if not pd.isna(last_rsi) else 50.0
-            
-        # Ek indikatörler
-        sma20 = float(df['SMA20'].iloc[-1]) if 'SMA20' in df else None
-        sma50 = float(df['SMA50'].iloc[-1]) if 'SMA50' in df else None
+            last_rsi = float(calculate_rsi(df['Close'], Config.RSI_PERIOD).iloc[-1])
+        
+        # SMA değerleri
+        sma20 = float(df['SMA20'].iloc[-1]) if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
+        sma50 = float(df['SMA50'].iloc[-1]) if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None
         
         # Trend durumu
         last_close = float(market_data['price'])
-        trend_status = "YUKARI" if last_close > sma20 else "AŞAĞI" if sma20 else "BELİRSİZ"
+        trend_text, trend_icon = determine_trend(last_close, sma20, sma50)
+        
+        # RSI yorumu
+        rsi_comment, _ = get_rsi_comment(last_rsi)
         
         data_str = (
             f"📊 KESİN GERÇEK VERİLER:\n"
             f"- Sembol: {market_data['symbol']}\n"
             f"- Canlı Son Fiyat: {market_data['price']:.2f} {market_data['currency']}\n"
             f"- Günlük Değişim: %{market_data['change']:+.2f}\n"
-            f"- RSI(14): {last_rsi:.2f}\n"
-            f"- SMA20: {sma20:.2f} {market_data['currency'] if sma20 else ''}\n"
-            f"- SMA50: {sma50:.2f} {market_data['currency'] if sma50 else ''}\n"
-            f"- Trend Durumu: {trend_status}\n"
+            f"- RSI(14): {last_rsi:.1f} ({rsi_comment})\n"
+            f"- SMA20: {sma20:.2f} {market_data['currency'] if sma20 else 'Hesaplanıyor...'}\n"
+            f"- SMA50: {sma50:.2f} {market_data['currency'] if sma50 else 'Hesaplanıyor...'}\n"
+            f"- Trend Durumu: {trend_icon} {trend_text}\n"
             f"- Destek Seviyesi: {market_data['support']:.2f} {market_data['currency']}\n"
             f"- Direnç Seviyesi: {market_data['resistance']:.2f} {market_data['currency']}"
         )
         
-        # Mock veri uyarısı
         if market_data.get('is_mock'):
-            data_str += "\n\n⚠️ UYARI: Bu veriler demo amaçlı üretilmiştir (canlı veri alınamadı)."
-            
+            data_str += "\n\n⚠️ UYARI: Bu veriler demo amaçlı üretilmiştir."
     else:
-        data_str = "⚠️ UYARI: Canlı veri çekilemedi. Lütfen sembolü kontrol edin."
+        data_str = "⚠️ UYARI: Canlı veri çekilemedi."
 
     system_instruction = (
-        "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n"
-        "ÇOK ÖNEMLİ KURAL 1: Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
-        "ÇOK ÖNEMLİ KURAL 2 (TEKNİK ANALİZ MANTIĞI):\n"
-        "- Fiyat desteğin altına kırılırsa SATIŞ BASKISI artar.\n"
-        "- Fiyat direnci yukarı kırarsa ALIM BASKISI artar.\n"
-        "- RSI 70 üstü AŞIRI ALIM, 30 altı AŞIRI SATIM bölgesidir.\n"
-        "- Sembol adlarını yazarken harf hatası yapma (Örn: GARAN.IS tam yazılmalı).\n"
-        f"Mevcut Canlı Pazar Verisi:\n{data_str}\n"
-        "Analizini teknik indikatörleri temel alarak net, otoriter ve profesyonel borsa terminali üslubuyla sun."
+        "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n\n"
+        "📌 TEMEL KURALLAR:\n"
+        "1. Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
+        "2. Analizini TEKNİK İNDİKATÖRLERE dayandır.\n"
+        "3. Cevabını 3-4 paragrafta, net ve öz bir şekilde ver.\n"
+        "4. Türkçe yaz, ama İngilizce terimleri doğru kullan.\n\n"
+        "📈 TEKNİK ANALİZ KURALLARI:\n"
+        "- RSI 70 üstü = AŞIRI ALIM (satış düşünülebilir)\n"
+        "- RSI 30 altı = AŞIRI SATIM (alım düşünülebilir)\n"
+        "- Fiyat SMA20 üstünde = KISA VADE YÜKSELİŞ trendi\n"
+        "- Fiyat SMA20 altında = KISA VADE DÜŞÜŞ trendi\n"
+        "- Fiyat SMA50 üstünde = ORTA VADE YÜKSELİŞ trendi\n"
+        "- Fiyat SMA50 altında = ORTA VADE DÜŞÜŞ trendi\n"
+        "- DESTEK = Fiyatın düşerken tutunabileceği seviye\n"
+        "- DİRENÇ = Fiyatın yükselirken karşılaşacağı seviye\n\n"
+        f"Mevcut Canlı Pazar Verisi:\n{data_str}\n\n"
+        "Analizini bu verilere dayanarak yap. Son cümlede özet bir görüş belirt."
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -535,10 +566,10 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
     try:
         logger.info("AI analizi başlatılıyor...")
         res = client.chat.completions.create(
-            model=MODEL_70B, 
-            messages=messages, 
+            model=MODEL_70B,
+            messages=messages,
             temperature=0.1,
-            max_tokens=500
+            max_tokens=400
         )
         response = res.choices[0].message.content
         logger.info("AI analizi tamamlandı")
@@ -567,7 +598,6 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    # 📍 API key yönetimi geliştirildi
     groq_api_key = os.environ.get("GROQ_API_KEY")
     
     if not groq_api_key:
@@ -576,7 +606,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 📍 Watchlist geliştirildi
     st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom:5px;'>📋 WATCHLIST (CANLI)</p>", unsafe_allow_html=True)
     watchlist_input = st.text_input("Semboller (virgülle ayırın):", value="THYAO.IS, ASELS.IS, GARAN.IS")
     
@@ -585,7 +614,6 @@ with st.sidebar:
         if st.button("🔄 GÜNCELLE", use_container_width=True):
             symbols = [sanitize_symbol(s.strip()) for s in watchlist_input.split(",") if s.strip()]
             
-            # Progress bar
             progress_bar = st.progress(0)
             
             for i, sym in enumerate(symbols):
@@ -603,11 +631,10 @@ with st.sidebar:
             progress_bar.empty()
     
     with col2:
-        # 📍 Log görüntüleme (debug için)
         if st.button("🐛 DEBUG LOG", use_container_width=True):
             st.code("Son loglar için terminale bakın", language="bash")
 
-# 📍 API key kontrolü
+# API key kontrolü
 if not groq_api_key:
     st.warning("""
     ⚠️ **Groq API Key bulunamadı!**
@@ -626,7 +653,7 @@ except Exception as e:
     st.error(f"❌ Groq client hatası: {e}")
     st.stop()
 
-# --- ANA EKRAN BÜYÜK LOGO BANNER & PİYASA ÖZETİ ---
+# --- ANA EKRAN ---
 logo_and_summary_cols = st.columns([1.5, 2.5])
 
 with logo_and_summary_cols[0]:
@@ -648,26 +675,22 @@ with logo_and_summary_cols[0]:
     """, unsafe_allow_html=True)
 
 with logo_and_summary_cols[1]:
-    # 📍 Özet metrikler - hata yönetimi geliştirildi
     top_volume_data = get_top_volume_bist100_symbols()
     
     summary_metrics = {}
     
-    # BIST 100
     try:
         bist100_data = fetch_bist_tradingview("^XU100")
         summary_metrics["BIST 100"] = bist100_data or {"price": 10250.0, "change": 1.2}
     except:
         summary_metrics["BIST 100"] = {"price": 10250.0, "change": 1.2}
     
-    # BIST ANA
     try:
         bist_ana_data = fetch_bist_tradingview("XBANA")
         summary_metrics["BIST ANA"] = bist_ana_data or {"price": 9400.0, "change": 0.8}
     except:
         summary_metrics["BIST ANA"] = {"price": 9400.0, "change": 0.8}
     
-    # Döviz kurları
     summary_metrics["USD/TRY"] = {"price": 34.50, "change": 0.15}
     summary_metrics["EUR/TRY"] = {"price": 37.20, "change": 0.20}
     
@@ -683,7 +706,7 @@ with logo_and_summary_cols[1]:
             delta_color=delta_color
         )
 
-# --- CANLI AKAN PİYASA ŞERİDİ (TICKER TAPE) ---
+# --- CANLI AKAN PİYASA ŞERİDİ ---
 if top_volume_data:
     ticker_items = ""
     for name, (val, chg) in top_volume_data.items():
@@ -709,7 +732,7 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "⚡ **BISTeknik Terminal Çevrimiçi.** Bir hisse seçin veya yazın."}
     ]
 
-# SOL PANEL (GRAFİK ENGINE)
+# SOL PANEL
 with col_left:
     st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● REAL-TIME ENGINE</span></div>", unsafe_allow_html=True)
     
@@ -725,32 +748,30 @@ with col_left:
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), selected_symbol_code)
     active_symbol = extract_symbol_fast(last_user_query, default_sym=selected_symbol_code)
     
-    # 📍 Loading spinner eklendi
     with st.spinner(f"📊 {active_symbol} verileri çekiliyor..."):
         market_data = fetch_real_market_data(active_symbol)
     
     if market_data and market_data.get("df") is not None:
-        # 📍 Son 90 gün
         df = market_data["df"].tail(Config.MAX_HISTORY_DAYS)
         
         is_negative = market_data['change'] < 0
         trend_color = '#dc2626' if is_negative else '#16a34a'
         
-        # 📍 Mock veri uyarısı
-        mock_warning = " ⚠️ (DEMO)" if market_data.get('is_mock') else ""
-        
-        st.markdown(
-            f"✅ **{market_data['symbol']}** Canlı Veri{mock_warning} | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
-            f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>)",
-            unsafe_allow_html=True
-        )
-        
-        # 📍 RSI hesaplama doğrulama
+        # RSI değerini al
         if 'RSI' in df:
             last_rsi = float(df['RSI'].iloc[-1]) if not pd.isna(df['RSI'].iloc[-1]) else 50.0
         else:
             df['RSI'] = calculate_rsi(df['Close'], Config.RSI_PERIOD)
             last_rsi = float(df['RSI'].iloc[-1])
+        
+        mock_warning = " ⚠️ (DEMO)" if market_data.get('is_mock') else ""
+        
+        st.markdown(
+            f"✅ **{market_data['symbol']}** Canlı Veri{mock_warning} | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
+            f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>) | "
+            f"RSI: **{last_rsi:.1f}**",
+            unsafe_allow_html=True
+        )
 
         fig = make_subplots(
             rows=2, cols=1, 
@@ -789,8 +810,6 @@ with col_left:
         
         fig.add_hline(y=70, line_dash="dash", line_color="#dc2626", opacity=0.5, row=2, col=1)
         fig.add_hline(y=30, line_dash="dash", line_color="#16a34a", opacity=0.5, row=2, col=1)
-        
-        # 📍 RSI zone renklendirmesi
         fig.add_hrect(y0=70, y1=100, line_width=0, fillcolor="#dc2626", opacity=0.05, row=2, col=1)
         fig.add_hrect(y0=0, y1=30, line_width=0, fillcolor="#16a34a", opacity=0.05, row=2, col=1)
 
@@ -810,23 +829,44 @@ with col_left:
         st.plotly_chart(fig, use_container_width=True, key=f"chart_{active_symbol}_{time.time()}")
         
         # 📍 Teknik indikatör özeti
+        sma20_val = df['SMA20'].iloc[-1] if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
+        sma50_val = df['SMA50'].iloc[-1] if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None
+        
+        rsi_label, rsi_color = get_rsi_comment(last_rsi)
+        trend_text, trend_icon = determine_trend(market_data['price'], sma20_val, sma50_val)
+        
         col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
         with col_metric1:
-            st.metric("RSI (14)", f"{last_rsi:.1f}", 
-                     delta="Aşırı Alım" if last_rsi > 70 else "Aşırı Satım" if last_rsi < 30 else "Nötr")
+            st.metric(
+                "RSI (14)", 
+                f"{last_rsi:.1f}", 
+                delta=rsi_label,
+                delta_color=rsi_color
+            )
         with col_metric2:
-            st.metric("SMA 20", f"{df['SMA20'].iloc[-1]:.2f}" if not pd.isna(df['SMA20'].iloc[-1]) else "—")
+            st.metric(
+                "SMA 20", 
+                f"{sma20_val:.2f}" if sma20_val else "—", 
+                delta="Fiyat Üstü" if sma20_val and market_data['price'] > sma20_val else "Fiyat Altı" if sma20_val else "—"
+            )
         with col_metric3:
-            st.metric("SMA 50", f"{df['SMA50'].iloc[-1]:.2f}" if not pd.isna(df['SMA50'].iloc[-1]) else "—")
+            st.metric(
+                "SMA 50", 
+                f"{sma50_val:.2f}" if sma50_val else "—", 
+                delta="Fiyat Üstü" if sma50_val and market_data['price'] > sma50_val else "Fiyat Altı" if sma50_val else "—"
+            )
         with col_metric4:
-            trend = "📈 Yükseliş" if not is_negative else "📉 Düşüş"
-            st.metric("Trend", trend, delta=f"%{market_data['change']:+.2f}")
+            st.metric(
+                "Trend", 
+                f"{trend_icon} {trend_text}", 
+                delta=f"%{market_data['change']:+.2f}"
+            )
             
     else:
         st.error(f"❌ **{active_symbol}** için borsadan canlı veri alınamadı.")
         st.info("💡 Öneriler:\n- Sembol kodunu kontrol edin (örn: THYAO.IS)\n- Borsa açık mı kontrol edin\n- Daha sonra tekrar deneyin")
 
-# SAĞ PANEL (AI CHAT ENGINE)
+# SAĞ PANEL
 with col_right:
     st.markdown("<div class='t-panel-header'><span>🤖 AI QUANT ANALYST</span><span>MODEL: 70B</span></div>", unsafe_allow_html=True)
     
@@ -839,7 +879,6 @@ with col_right:
     if prompt := st.chat_input("Soru veya sembol yazın..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # 📍 Progress bar ile analiz
         progress_text = st.empty()
         progress_bar = st.progress(0)
         
