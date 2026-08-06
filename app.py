@@ -22,104 +22,115 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- RADİKAL DÖNÜŞÜM: AGRESİF TERMINAL STİLİ ---
+# --- DERİN OVERRIDE: TÜM CONTAINER VE BİLEŞEN STİLLERİNİ SIFIRLAMA ---
 st.markdown("""
 <style>
-    /* Global Reset & Dark Theme */
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #06080c !important;
-        color: #d1d5db !important;
-        font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
+    /* 1. GLOBAL ARKA PLAN VE FONT */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background: #04060a !important;
+        color: #94a3b8 !important;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
     }
-
+    
     [data-testid="stSidebar"] {
-        background-color: #0b0e14 !important;
-        border-right: 1px solid #1a2332 !important;
+        background-color: #070a10 !important;
+        border-right: 1px solid #131c2e !important;
     }
 
-    header, footer { visibility: hidden !important; }
+    header, footer { display: none !important; }
 
     .main .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-        max-width: 98% !important;
+        padding: 1rem 1.5rem !important;
+        max-width: 99% !important;
     }
 
-    /* Streamlit varsayılan kutularını sıfırlama ve özelleştirme */
+    /* 2. TÜM STREAMLIT CONTAINER / KUTU VARSAYILANLARINI KAZIMA */
+    [data-testid="stVerticalBlock"] > div {
+        background: transparent !important;
+        border: none !important;
+    }
+
+    /* 3. METRİK KARTLARI (TICKER TAPE) */
     [data-testid="stMetric"] {
-        background: #0d121d !important;
-        border: 1px solid #1e293b !important;
-        border-left: 3px solid #00e676 !important;
-        border-radius: 6px !important;
+        background: #080d16 !important;
+        border: 1px solid #131c2e !important;
+        border-radius: 4px !important;
         padding: 10px 14px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.6) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
     }
-
     [data-testid="stMetricLabel"] {
-        color: #64748b !important;
-        font-size: 0.75rem !important;
+        color: #475569 !important;
+        font-size: 0.7rem !important;
         font-weight: 700 !important;
-        letter-spacing: 1px !important;
     }
-
     [data-testid="stMetricValue"] {
         color: #f8fafc !important;
-        font-size: 1.35rem !important;
+        font-size: 1.25rem !important;
         font-weight: 800 !important;
     }
 
-    /* Chat Alanı Tasarımı */
+    /* 4. CHAT VE KUTULARIN İÇ ARKA PLANLARI */
     [data-testid="stChatMessage"] {
-        background-color: #0d121d !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 8px !important;
+        background-color: #080d16 !important;
+        border: 1px solid #131c2e !important;
+        border-radius: 4px !important;
     }
-
-    /* Input & Butonlar */
-    .stTextInput input {
-        background-color: #0d121d !important;
-        color: #00e676 !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 6px !important;
-    }
-
-    .stTextInput input:focus {
-        border-color: #00e676 !important;
-        box-shadow: 0 0 10px rgba(0, 230, 118, 0.2) !important;
-    }
-
-    .stButton button {
-        background: #101726 !important;
+    
+    /* Info ve Alert Kutularını Terminal Uyumlu Yapma */
+    [data-testid="stAlert"] {
+        background-color: #080d16 !important;
         color: #38bdf8 !important;
-        border: 1px solid #1e293b !important;
+        border: 1px solid #131c2e !important;
+        border-radius: 4px !important;
+    }
+
+    /* 5. INPUT ALANLARI VE BEYAZ CHAT INPUT'U SİYAHLAŞTIRMA */
+    [data-testid="stChatInput"] {
+        background-color: #080d16 !important;
+        border: 1px solid #1a273e !important;
         border-radius: 6px !important;
+    }
+    [data-testid="stChatInput"] textarea {
+        color: #00e676 !important;
+        background-color: transparent !important;
+    }
+
+    .stTextInput input {
+        background-color: #080d16 !important;
+        color: #00e676 !important;
+        border: 1px solid #131c2e !important;
+        border-radius: 4px !important;
+    }
+
+    /* 6. BUTTON STİLLERİ */
+    .stButton button {
+        background: #0d1527 !important;
+        color: #00e676 !important;
+        border: 1px solid #1a273e !important;
+        border-radius: 4px !important;
         font-weight: 700 !important;
-        transition: all 0.2s ease !important;
+        width: 100%;
     }
-
     .stButton button:hover {
-        background: #38bdf8 !important;
-        color: #06080c !important;
-        border-color: #38bdf8 !important;
-        box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+        background: #00e676 !important;
+        color: #04060a !important;
+        border-color: #00e676 !important;
     }
 
-    /* Kartlar için Özel Hazırlanmış Terminal Başlığı */
-    .terminal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: #0d121d;
-        border: 1px solid #1e293b;
-        border-radius: 6px 6px 0 0;
-        padding: 8px 14px;
-        font-size: 0.85rem;
+    /* 7. ÖZEL TERMINAL HEADER PANELERİ */
+    .t-panel-header {
+        background: #080d16;
+        border: 1px solid #131c2e;
+        border-bottom: none;
+        padding: 6px 12px;
+        font-size: 0.75rem;
         font-weight: 700;
-        color: #38bdf8;
-        letter-spacing: 0.5px;
+        color: #00e676;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        letter-spacing: 1px;
     }
-
-    hr { border-color: #1a2332 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -161,10 +172,10 @@ def fetch_data(symbol):
 @st.cache_data(ttl=60)
 def get_quick_market_data():
     tickers = {
-        "BIST 100": "^XU100",
         "USD/TRY": "USDTRY=X",
         "EUR/TRY": "EURTRY=X",
-        "ONS ALTIN": "GC=F"
+        "ONS ALTIN": "GC=F",
+        "BIST 100": "^XU100"
     }
     data = {}
     for name, sym in tickers.items():
@@ -226,18 +237,18 @@ def detect_symbol_with_ai(user_input, history, client):
 
 # --- YAN MENÜ (SIDEBAR) ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #00e676; font-size: 1.1rem; margin-bottom: 0;'>⚡ T — TERMINAL</h3>", unsafe_allow_html=True)
-    st.caption("Algorithmic Trading & Analytics Engine")
-    st.divider()
+    st.markdown("<h3 style='color: #00e676; font-size: 1rem; margin:0;'>⚡ T — TERMINAL</h3>", unsafe_allow_html=True)
+    st.caption("Quantitative Trading Core")
+    st.markdown("---")
 
     groq_api_key = st.text_input("Groq API Key:", type="password")
     if not groq_api_key:
         groq_api_key = os.environ.get("GROQ_API_KEY", "")
 
-    st.divider()
-    st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #64748b;'>WATCHLIST</p>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #475569; margin-bottom:5px;'>WATCHLIST</p>", unsafe_allow_html=True)
     watchlist_input = st.text_input("Semboller:", value="THYAO.IS, ASELS.IS, BTC-USD")
-    if st.button("🔄 Güncelle"):
+    if st.button("🔄 GÜNCELLE"):
         symbols = [s.strip().upper() for s in watchlist_input.split(",") if s.strip()]
         for sym in symbols:
             try:
@@ -256,28 +267,28 @@ if not groq_api_key:
 
 client = Groq(api_key=groq_api_key)
 
-# --- ANA EKRAN DÜZENİ (DASHBOARD) ---
+# --- ANA TERMINAL EKRANI ---
 
-# 1. Ticker Tape (Piyasa Akışı)
+# 1. Üst Bant (Piyasa Verileri)
 market_summary = get_quick_market_data()
 if market_summary:
     cols = st.columns(len(market_summary))
     for idx, (name, (val, chg)) in enumerate(market_summary.items()):
         cols[idx].metric(label=name, value=f"{val:,.2f}", delta=f"%{chg:+.2f}")
 
-st.divider()
+st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
-# 2. İki Sütunlu Terminal Yapısı
-col_left, col_right = st.columns([1.65, 1.0], gap="small")
+# 2. İki Sütunlu Izgara
+col_left, col_right = st.columns([1.6, 1.0], gap="small")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "⚡ **T Terminal Çevrimiçi.** Bir hisse/kripto kodu girin (Örn: `THYAO`, `BTC-USD`)."}
     ]
 
-# SOL SÜTUN: Grafik & Piyasa Paneli
+# SOL PANEL: Grafik Engine
 with col_left:
-    st.markdown("<div class='terminal-header'><span>📊 TECHNICAL CHART & FEED</span><span>LIVE</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span>STATUS: LIVE</span></div>", unsafe_allow_html=True)
     
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
@@ -299,11 +310,11 @@ with col_left:
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name="Fiyat",
             increasing_line_color='#00e676', decreasing_line_color='#ff3366',
-            increasing_fillcolor='rgba(0, 230, 118, 0.1)', decreasing_fillcolor='rgba(255, 51, 102, 0.1)'
+            increasing_fillcolor='rgba(0, 230, 118, 0.15)', decreasing_fillcolor='rgba(255, 51, 102, 0.15)'
         ), row=1, col=1)
 
         fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#ffb703', width=1.2)), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#2196f3', width=1.2)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#38bdf8', width=1.2)), row=1, col=1)
 
         fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#a855f7', width=1.2)), row=2, col=1)
         fig.add_hline(y=70, line_dash="dash", line_color="#ff3366", opacity=0.5, row=2, col=1)
@@ -311,26 +322,26 @@ with col_left:
 
         fig.update_layout(
             template="plotly_dark",
-            height=540,
-            paper_bgcolor="#0d121d",
-            plot_bgcolor="#06080c",
+            height=560,
+            paper_bgcolor="#080d16",
+            plot_bgcolor="#04060a",
             margin=dict(l=10, r=10, t=30, b=10),
             xaxis_rangeslider_visible=False,
             showlegend=True,
             legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1)
         )
-        fig.update_xaxes(gridcolor="#1e293b", zerolinecolor="#1e293b")
-        fig.update_yaxes(gridcolor="#1e293b", zerolinecolor="#1e293b")
+        fig.update_xaxes(gridcolor="#131c2e", zerolinecolor="#131c2e")
+        fig.update_yaxes(gridcolor="#131c2e", zerolinecolor="#131c2e")
 
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("💡 Lütfen sohbet paneline analiz etmek istediğiniz varlığı yazın.")
 
-# SAĞ SÜTUN: AI Analist & Chat Paneli
+# SAĞ PANEL: AI Engine & Chat
 with col_right:
-    st.markdown("<div class='terminal-header'><span>🤖 AI ANALYST ENGINE</span><span>MODEL 70B</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='t-panel-header'><span>🤖 AI QUANT ANALYST</span><span>MODEL: 70B</span></div>", unsafe_allow_html=True)
     
-    chat_container = st.container(height=455)
+    chat_container = st.container(height=480)
     with chat_container:
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
@@ -339,7 +350,7 @@ with col_right:
     if prompt := st.chat_input("Soru veya sembol yazın..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        with st.spinner("İşleniyor..."):
+        with st.spinner("Analiz ediliyor..."):
             symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
             current_market_data = fetch_data(symbol) if symbol else None
             ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
