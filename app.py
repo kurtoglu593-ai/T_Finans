@@ -357,7 +357,7 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     else:
         data_str = "UYARI: Canlı veri çekilemedi."
 
-   system_instruction = f"""
+    system_instruction = f"""
 Sen BISTeknik Quant Terminal'in baş analistisin.
 
 Kurallar:
