@@ -260,7 +260,7 @@ def fetch_real_market_data(symbol: str):
 
     try:
         stooq_code = clean_sym.replace(".IS", ".TR").replace("^", "").lower()
-       stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
+        stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
         df_stooq = pd.read_csv(stooq_url)
         
         if not df_stooq.empty and 'Close' in df_stooq.columns and len(df_stooq) > 5:
