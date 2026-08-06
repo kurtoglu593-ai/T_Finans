@@ -166,4 +166,25 @@ def fetch_data(symbol: str):
         if df.empty:
             return None
         
-        # SMA ve RSI
+        df['SMA20'] = df['Close'].rolling(window=20).mean()
+        df['SMA50'] = df['Close'].rolling(window=50).mean()
+        df['RSI'] = calculate_rsi(df['Close'], 14)
+
+        info = ticker.fast_info
+        return {
+            "symbol": symbol,
+            "price": info.last_price,
+            "change": ((info.last_price - info.previous_close) / info.previous_close) * 100,
+            "currency": getattr(info, 'currency', 'TL'),
+            "df": df
+        }
+    except Exception:
+        return None
+
+def analyze_with_ai(user_prompt: str, market_data: dict, history: list) -> str:
+    data_str = "Canlı piyasa verisi yok."
+    if market_data:
+        last_rsi = market_data['df']['RSI'].iloc[-1] if 'RSI' in market_data['df'] else 0
+        data_str = f"Varlık: {market_data['symbol']} | Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f} | Son RSI(14): {last_rsi:.1f}"
+
+    system_instruction = f"Sen '
