@@ -1,7 +1,6 @@
 import os
 import re
 import datetime
-import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -9,6 +8,15 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
 from groq import Groq
+import yfinance as yf
+
+# Cloud IP Engellerini (HTTP 403/401) aşan Tarayıcı Taklit Modülü
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    import requests as cffi_requests
+    HAS_CURL_CFFI = False
 
 # Model Tanımlamaları
 MODEL_70B = "llama-3.3-70b-versatile"
@@ -63,9 +71,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- KESİNTİSİZ VERİ ENGINE ---
+# --- VERİ VE YARDIMCI FONKSİYONLAR ---
 
 def sanitize_symbol(symbol: str) -> str:
+    """Sembol isimlerini borsalara uygun formata getirir (Örn: THYAO -> THYAO.IS)."""
     if not symbol:
         return "THYAO.IS"
     symbol = symbol.strip().upper()
@@ -75,120 +84,72 @@ def sanitize_symbol(symbol: str) -> str:
     return symbol
 
 def calculate_rsi(series, period=14):
+    """Wilder RSI Hesaplama Motoru."""
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-# 1. BIST ÖZEL MOTORU: İş Yatırım Resmi Web Servisi (Bloklanmaz, Kesintisiz)
-def fetch_isyatirim(symbol):
-    try:
-        clean_code = symbol.replace(".IS", "").upper()
-        end_date = datetime.datetime.now().strftime("%d-%m-%Y")
-        start_date = (datetime.datetime.now() - datetime.timedelta(days=180)).strftime("%d-%m-%Y")
-        
-        url = f"https://www.isyatirim.com.tr/_layouts/15/IsYatirim.Website/Common/Data.aspx/HisseGecmisFiyatGenel?sektor=&hisse={clean_code}&start={start_date}&end={end_date}.json"
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-        
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            data = res.json().get('value', [])
-            if data:
-                df = pd.DataFrame(data)
-                df['Date'] = pd.to_datetime(df['HGD_TARIH'], format='%d-%m-%Y')
-                df['Close'] = df['HGD_KAPANIS'].astype(float)
-                df['Open'] = df['HGD_ACOS'].astype(float) if 'HGD_ACOS' in df else df['Close']
-                df['High'] = df['HGD_EN_YUKSEK'].astype(float) if 'HGD_EN_YUKSEK' in df else df['Close']
-                df['Low'] = df['HGD_EN_DUSUK'].astype(float) if 'HGD_EN_DUSUK' in df else df['Close']
-                
-                df.set_index('Date', inplace=True)
-                df.sort_index(inplace=True)
-                return df
-    except Exception:
-        pass
-    return None
+def get_browser_session():
+    """Chrome TLS Parmak İzini taklit eden canlı oturum oluşturur."""
+    if HAS_CURL_CFFI:
+        return cffi_requests.Session(impersonate="chrome120")
+    else:
+        session = cffi_requests.Session()
+        session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+        return session
 
-# 2. KRİPTO MOTORU: CryptoCompare
-def fetch_cryptocompare(symbol):
-    try:
-        coin = symbol.split("-")[0].upper()
-        url = f"https://min-api.cryptocompare.com/data/v2/histoday?fsym={coin}&tsym=USD&limit=120"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if res.status_code == 200:
-            raw_data = res.json().get('Data', {}).get('Data', [])
-            if raw_data:
-                df = pd.DataFrame(raw_data)
-                df['Date'] = pd.to_datetime(df['time'], unit='s')
-                df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close'}, inplace=True)
-                df.set_index('Date', inplace=True)
-                return df
-    except Exception:
-        pass
-    return None
-
-# 3. YEDEK MOTOR: Yahoo Direct Query
-def fetch_yahoo_direct(symbol):
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=6m&interval=1d"
-        res = requests.get(url, headers=headers, timeout=4)
-        if res.status_code == 200:
-            result = res.json().get('chart', {}).get('result', [])
-            if result and result[0].get('timestamp'):
-                timestamps = result[0]['timestamp']
-                quote = result[0]['indicators']['quote'][0]
-                df = pd.DataFrame({
-                    'Date': pd.to_datetime(timestamps, unit='s'),
-                    'Open': quote.get('open'),
-                    'High': quote.get('high'),
-                    'Low': quote.get('low'),
-                    'Close': quote.get('close')
-                }).dropna()
-                if not df.empty:
-                    df.set_index('Date', inplace=True)
-                    return df
-    except Exception:
-        pass
-    return None
-
-# VERİ TOPLAMA VE FAILSAFE YÖNETİCİSİ
-def fetch_market_data(symbol):
+def fetch_real_market_data(symbol: str):
+    """
+    SADECE %100 GERÇEK CANLI VERİ ÇEKER.
+    Sentetik (mock) veri üretmez! Veri çekilemezse None döner.
+    """
     clean_sym = sanitize_symbol(symbol)
+    session = get_browser_session()
     df = None
 
-    # 1. Kripto kontrolü
-    if "BTC" in clean_sym or "ETH" in clean_sym or "-USD" in clean_sym:
-        df = fetch_cryptocompare(clean_sym)
-    
-    # 2. BIST Kontrolü (İş Yatırım Servisi)
-    if (df is None or df.empty) and clean_sym.endswith(".IS"):
-        df = fetch_isyatirim(clean_sym)
+    # 1. Aşama: Impersonated Session ile yfinance üzerinden çekme
+    try:
+        ticker = yf.Ticker(clean_sym, session=session)
+        df = ticker.history(period="6m", interval="1d")
+        if df.empty or len(df) < 5:
+            df = None
+    except Exception:
+        df = None
 
-    # 3. Genel Yedek (Yahoo Direct)
+    # 2. Aşama: Yahoo Direct REST API Fallback (Bot Engelini Aşar)
     if df is None or df.empty:
-        df = fetch_yahoo_direct(clean_sym)
+        try:
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d"
+            res = session.get(url, timeout=5)
+            if res.status_code == 200:
+                result = res.json().get('chart', {}).get('result', [])
+                if result and result[0].get('timestamp'):
+                    timestamps = result[0]['timestamp']
+                    quote = result[0]['indicators']['quote'][0]
+                    
+                    df_res = pd.DataFrame({
+                        'Date': pd.to_datetime(timestamps, unit='s'),
+                        'Open': quote.get('open'),
+                        'High': quote.get('high'),
+                        'Low': quote.get('low'),
+                        'Close': quote.get('close')
+                    }).dropna()
 
-    # 4. FAILSAFE (Hiçbir servis yanıt vermezse uygulamanın kilitlenmesini engeller)
-    if df is None or df.empty:
-        dates = pd.date_range(end=pd.Timestamp.now(), periods=60, freq='B')
-        base_p = 310.0 if "THYAO" in clean_sym else 100.0
-        np.random.seed(123)
-        sim_changes = np.random.normal(0, 0.012, size=60)
-        p_path = base_p * np.exp(np.cumsum(sim_changes))
-        df = pd.DataFrame({
-            'Open': p_path * 0.995,
-            'High': p_path * 1.008,
-            'Low': p_path * 0.991,
-            'Close': p_path
-        }, index=dates)
+                    if not df_res.empty:
+                        df_res.set_index('Date', inplace=True)
+                        df = df_res
+        except Exception:
+            df = None
 
-    # İndikatör Hesaplamaları
+    # Eğer canlı veri yoksa strictly None döndür (Yalan/Mock veri üretme)
+    if df is None or df.empty or len(df) < 5:
+        return None
+
+    # İndikatör Hesaplamaları (Gerçek Veri Üzerinden)
     df['SMA20'] = df['Close'].rolling(window=20).mean()
     df['SMA50'] = df['Close'].rolling(window=50).mean()
     df['RSI'] = calculate_rsi(df['Close'], 14)
@@ -197,25 +158,32 @@ def fetch_market_data(symbol):
     prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
     pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
     curr = 'TRY' if clean_sym.endswith('.IS') else 'USD'
+    
+    # Destek ve Direnç Seviyeleri (Son 20 günün dip ve tepesi)
+    support = float(df['Low'].tail(20).min())
+    resistance = float(df['High'].tail(20).max())
 
     return {
         "symbol": clean_sym,
         "price": last_p,
         "change": pct_chg,
         "currency": curr,
+        "support": support,
+        "resistance": resistance,
         "df": df
     }
 
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=60)
 def get_quick_market_data():
+    """Üst banttaki piyasa özeti için canlı veri çekici."""
     tickers = {"USD/TRY": "USDTRY=X", "EUR/TRY": "EURTRY=X", "ONS ALTIN": "GC=F", "BIST 100": "^XU100"}
     data = {}
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    session = get_browser_session()
     
     for name, sym in tickers.items():
         try:
             url = f"https://query2.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d"
-            res = requests.get(url, headers=headers, timeout=3)
+            res = session.get(url, timeout=3)
             if res.status_code == 200:
                 closes = res.json()['chart']['result'][0]['indicators']['quote'][0]['close']
                 valid = [c for c in closes if c is not None]
@@ -227,22 +195,30 @@ def get_quick_market_data():
     return data
 
 def analyze_with_ai(user_prompt, market_data, history, client):
+    """
+    Halüsinasyonu önlemek için kesin prompt kurallarıyla AI analizi üretir.
+    """
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
-        last_rsi = df['RSI'].iloc[-1] if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]) else 50.0
+        last_rsi = float(df['RSI'].iloc[-1]) if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]) else 50.0
         data_str = (
-            f"Varlık: {market_data['symbol']} | "
-            f"Son Fiyat: {market_data['price']:.2f} {market_data['currency']} | "
-            f"Günlük Değişim: %{market_data['change']:+.2f} | "
-            f"RSI(14): {last_rsi:.1f}"
+            f"KESİN GERÇEK VERİLER:\n"
+            f"- Sembol: {market_data['symbol']}\n"
+            f"- Canlı Son Fiyat: {market_data['price']:.2f} {market_data['currency']}\n"
+            f"- Günlük Değişim: %{market_data['change']:+.2f}\n"
+            f"- RSI(14): {last_rsi:.2f}\n"
+            f"- Hesaplanan Destek: {market_data['support']:.2f} {market_data['currency']}\n"
+            f"- Hesaplanan Direnç: {market_data['resistance']:.2f} {market_data['currency']}"
         )
     else:
-        data_str = "Varlık verisi aktif olarak işleniyor."
+        data_str = "UYARI: Veri sağlayıcı sunucusundan canlı veri çekilemedi. Kullanıcıya verinin anlık olarak alınamadığını söyle."
 
     system_instruction = (
-        "Sen 'T' adında profesyonel bir borsa ve finans analistisin. "
-        "Mevcut Veri Durumu: " + data_str + " "
-        "Teknik indikatörleri temel alarak kısa, net, otoriter ve borsa terminali üslubuyla yanıt ver."
+        "Sen 'T' adında profesyonel bir borsa ve finans analistisin.\n"
+        "ÇOK ÖNEMLİ KURAL: Kesinlikle geçmiş bilginden fiyat UYDURMA. "
+        "Yalnızca ve yalnızca sana sistem tarafından sağlanan GERÇEK FİYAT VERİSİNİ kullan.\n"
+        f"Mevcut Pazar Verisi:\n{data_str}\n"
+        "Analizini teknik indikatörleri temel alarak kısa, net, otoriter ve profesyonel borsa terminali üslubuyla sun."
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -251,12 +227,13 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     messages.append({"role": "user", "content": user_prompt})
 
     try:
-        res = client.chat.completions.create(model=MODEL_70B, messages=messages, temperature=0.2)
+        res = client.chat.completions.create(model=MODEL_70B, messages=messages, temperature=0.1)
         return res.choices[0].message.content
     except Exception as err:
-        return f"⚠️ Analiz Hatası: {err}"
+        return f"⚠️ AI Analiz Hatası: {err}"
 
 def detect_symbol_with_ai(user_input, history, client):
+    """Kullanıcı mesajından borsa/kripto kodunu tespit eder."""
     prompt = "Geçmiş: " + str(history[-2:]) + "\nSon Mesaj: '" + str(user_input) + "'\nBorsa/Kripto sembolünü döndür. (Örn: THYAO.IS, BTC-USD, GARAN.IS). Yoksa 'YOK' yaz."
     try:
         res = client.chat.completions.create(
@@ -271,7 +248,7 @@ def detect_symbol_with_ai(user_input, history, client):
     except Exception:
         return None
 
-# --- SIDEBAR ---
+# --- SIDEBAR (SOL MENÜ) ---
 with st.sidebar:
     st.markdown("<h3 style='color: #2563eb; font-size: 1.1rem; margin:0;'>⚡ T — TERMINAL</h3>", unsafe_allow_html=True)
     st.caption("Quantitative Trading Core")
@@ -282,14 +259,16 @@ with st.sidebar:
         groq_api_key = os.environ.get("GROQ_API_KEY", "")
 
     st.markdown("---")
-    st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom:5px;'>WATCHLIST</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom:5px;'>WATCHLIST (CANLI)</p>", unsafe_allow_html=True)
     watchlist_input = st.text_input("Semboller:", value="THYAO.IS, ASELS.IS, BTC-USD")
     if st.button("🔄 GÜNCELLE"):
         symbols = [sanitize_symbol(s) for s in watchlist_input.split(",") if s.strip()]
         for sym in symbols:
-            res_data = fetch_market_data(sym)
+            res_data = fetch_real_market_data(sym)
             if res_data:
-                st.metric(label=res_data['symbol'], value=f"{res_data['price']:,.2f}", delta=f"%{res_data['change']:+.2f}")
+                st.metric(label=res_data['symbol'], value=f"{res_data['price']:,.2f} {res_data['currency']}", delta=f"%{res_data['change']:+.2f}")
+            else:
+                st.caption(f"⚠️ {sym} canlı veri alınamadı.")
 
 if not groq_api_key:
     st.info("👈 Sol menüden **Groq API Key** girerek terminali aktif edin.")
@@ -297,7 +276,7 @@ if not groq_api_key:
 
 client = Groq(api_key=groq_api_key)
 
-# --- ANA EKRAN ---
+# --- ANA EKRAN ÜST BANT ---
 market_summary = get_quick_market_data()
 if market_summary:
     cols = st.columns(len(market_summary))
@@ -315,16 +294,19 @@ if "messages" not in st.session_state:
 
 # SOL PANEL (GRAFİK ENGINE)
 with col_left:
-    st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● LIVE</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● REAL-TIME ENGINE</span></div>", unsafe_allow_html=True)
     
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
     
-    market_data = fetch_market_data(active_symbol)
+    market_data = fetch_real_market_data(active_symbol)
     
     if market_data and market_data.get("df") is not None:
         df = market_data["df"].tail(90)
         
+        # Canlı Veri Doğrulama Badge'i
+        st.success(f"✅ **{market_data['symbol']}** Canlı Verisi Bağlandı | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** (%{market_data['change']:+.2f})")
+
         fig = make_subplots(
             rows=2, cols=1, 
             shared_xaxes=True, 
@@ -349,7 +331,7 @@ with col_left:
 
         fig.update_layout(
             template="plotly_white",
-            height=560,
+            height=540,
             paper_bgcolor="#ffffff",
             plot_bgcolor="#f8fafc",
             margin=dict(l=10, r=10, t=30, b=10),
@@ -361,8 +343,10 @@ with col_left:
         fig.update_yaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
 
         st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.error(f"❌ **{active_symbol}** için borsadan anlık canlı veri alınamadı. Lütfen sembolü doğru girdiğinizden (Örn: `THYAO`, `BTC-USD`) emin olun.")
 
-# SAĞ PANEL (AI CHAT)
+# SAĞ PANEL (AI CHAT ENGINE)
 with col_right:
     st.markdown("<div class='t-panel-header'><span>🤖 AI QUANT ANALYST</span><span>MODEL: 70B</span></div>", unsafe_allow_html=True)
     
@@ -375,9 +359,9 @@ with col_right:
     if prompt := st.chat_input("Soru veya sembol yazın..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        with st.spinner("Analiz ediliyor..."):
+        with st.spinner("Canlı piyasa verileri işleniyor ve analiz ediliyor..."):
             symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
-            current_market_data = fetch_market_data(symbol) if symbol else None
+            current_market_data = fetch_real_market_data(symbol) if symbol else None
             ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
             
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
