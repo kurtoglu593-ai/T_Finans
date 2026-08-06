@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
+import plotly.io as pio
 from plotly.subplots import make_subplots
 import pandas as pd
 from groq import Groq
@@ -8,8 +9,86 @@ import os
 import ast
 import shutil
 
+# Plotly Varsayılan Tema (Koyu Mod)
+pio.templates.default = "plotly_dark"
+
 # Sayfa Ayarları
 st.set_page_config(page_title="T - Otonom Finans Asistanı", page_icon="📈", layout="wide")
+
+# --- KOYU BORSA TERMİNALİ TEMA & CSS STİLLERİ ---
+st.markdown("""
+    <style>
+    /* Ana Sayfa ve Arka Plan */
+    .stApp {
+        background-color: #0E1117;
+        color: #E0E0E0;
+    }
+    
+    /* Yan Menü (Sidebar) */
+    [data-testid="stSidebar"] {
+        background-color: #161B22;
+        border-right: 1px solid #30363D;
+    }
+    
+    /* Metrik Kartları (st.metric) */
+    [data-testid="stMetric"] {
+        background: #161B22;
+        border: 1px solid #30363D;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        border-color: #58A6FF;
+        transform: translateY(-2px);
+    }
+    [data-testid="stMetricLabel"] {
+        color: #8B949E !important;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    [data-testid="stMetricValue"] {
+        color: #F0F6FC !important;
+        font-weight: 700;
+    }
+    
+    /* Sohbet Mesaj Kartları */
+    .stChatMessage {
+        background-color: #161B22;
+        border: 1px solid #21262D;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        padding: 10px 15px;
+    }
+    
+    /* Input & Buton Stilleri */
+    .stTextInput input {
+        background-color: #0D1117;
+        color: #F0F6FC;
+        border: 1px solid #30363D;
+        border-radius: 6px;
+    }
+    .stButton button {
+        background-color: #21262D;
+        color: #58A6FF;
+        border: 1px solid #30363D;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .stButton button:hover {
+        background-color: #30363D;
+        border-color: #58A6FF;
+        color: #ffffff;
+    }
+    
+    /* Ayırıcı Çizgiler */
+    hr {
+        border-color: #30363D !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- KENDİ KODUNU DÜZENLEME & SİGORTA MOTORU ---
 APP_FILE = "app.py"
@@ -34,7 +113,7 @@ def validate_python_code(code_string: str) -> bool:
 
 # --- BAŞLIK ---
 st.title("📈 T — Otonom Finans & Gelişim Asistanı")
-st.caption("Hem finansal analiz yapan hem de kendi kodunu geliştirebilen yapay zeka altyapısı")
+st.caption("Koyu Borsa Terminali Modu | Hem finansal analiz yapan hem de kendi kodunu geliştirebilen yapay zeka altyapısı")
 
 # --- ADIM 1: CANLI PİYASA ÖZET BANDI ---
 @st.cache_data(ttl=60)
@@ -75,6 +154,22 @@ with st.sidebar:
     groq_api_key = st.text_input("Groq API Key:", type="password", help="console.groq.com adresinden aldığınız anahtar")
     if not groq_api_key:
         groq_api_key = os.environ.get("GROQ_API_KEY", "")
+
+    st.divider()
+    st.subheader("⭐ Favori Takip Listesi")
+    watchlist_input = st.text_input("Semboller (virgülle ayırın):", value="THYAO.IS, ASELS.IS, BTC-USD")
+    if st.button("🔄 Portföyü Güncelle"):
+        symbols = [s.strip().upper() for s in watchlist_input.split(",") if s.strip()]
+        for sym in symbols:
+            try:
+                t = yf.Ticker(sym)
+                hist = t.history(period="2d")
+                if len(hist) >= 1:
+                    last_p = hist['Close'].iloc[-1]
+                    chg_p = ((last_p - hist['Close'].iloc[-2]) / hist['Close'].iloc[-2] * 100) if len(hist) >= 2 else 0.0
+                    st.metric(label=sym, value=f"{last_p:,.2f}", delta=f"%{chg_p:+.2f}")
+            except Exception:
+                st.caption(f"⚠️ {sym} verisi alınamadı.")
 
     st.divider()
     st.subheader("🛡️ Güvenlik Sigortası")
@@ -131,7 +226,7 @@ def evolve_self(user_instruction: str) -> str:
     except Exception as e:
         return f"❌ Hata: {e}"
 
-# --- ADIM 2: TEKNİK GÖSTERGELER VE FİNANSAL ANALİZ ---
+# --- TEKNİK GÖSTERGELER VE FİNANSAL ANALİZ ---
 def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -193,7 +288,7 @@ def detect_symbol_with_ai(user_input: str, history: list) -> str:
 # --- SOHBET VE EKRAN YÖNETİMİ ---
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Merhaba! Ben **T**.\n- Finansal sorular sorabilirsiniz (`THY analizi`, `Bitcoin RSI durumu` vb.)\n- Koduma özellik ekletebilirsiniz."}
+        {"role": "assistant", "content": "Merhaba! Ben **T**.\n- Koyu Borsa Terminali modum aktif!\n- Finansal sorular sorabilirsiniz (`THY analizi`, `Bitcoin RSI durumu` vb.)\n- Koduma özellik ekletebilirsiniz."}
     ]
 
 for msg in st.session_state.messages:
@@ -220,7 +315,7 @@ if prompt := st.chat_input("T'ye bir soru sorun veya kod güncellemesi isteyin..
                 ai_response = analyze_with_ai(prompt, market_data, st.session_state.messages)
                 st.markdown(ai_response)
 
-                # ADIM 2 GÖRSELLEŞTİRME: CANDLESTICK + SMA20/50 + RSI
+                # GÖRSELLEŞTİRME: CANDLESTICK + SMA20/50 + RSI (PLOTLY_DARK TEMASI)
                 if market_data and market_data.get("df") is not None:
                     df = market_data["df"].tail(90)
                     
@@ -238,17 +333,25 @@ if prompt := st.chat_input("T'ye bir soru sorun veya kod güncellemesi isteyin..
                     ), row=1, col=1)
 
                     # SMA 20 ve SMA 50
-                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='orange', width=1.5)), row=1, col=1)
-                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='blue', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#FFA500', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#00BFFF', width=1.5)), row=1, col=1)
 
                     # RSI Grafiği
-                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='purple', width=1.5)), row=2, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#BF5AF2', width=1.5)), row=2, col=1)
 
                     # RSI Referans Çizgileri (30 & 70)
-                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
-                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+                    fig.add_hline(y=70, line_dash="dash", line_color="#FF453A", row=2, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="#30D158", row=2, col=1)
 
-                    fig.update_layout(height=500, xaxis_rangeslider_visible=False, showlegend=True)
+                    # Plotly Dark Teması Entegrasyonu
+                    fig.update_layout(
+                        template="plotly_dark",
+                        height=520,
+                        xaxis_rangeslider_visible=False,
+                        showlegend=True,
+                        paper_bgcolor="#161B22",
+                        plot_bgcolor="#0D1117"
+                    )
                     st.plotly_chart(fig, use_container_width=True)
 
                 st.session_state.messages.append({"role": "assistant", "content": ai_response})
