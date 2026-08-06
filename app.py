@@ -62,7 +62,7 @@ pio.templates.default = "plotly_white"
 
 # Sayfa Yapılandırması
 st.set_page_config(
-    page_title="T - Terminal",
+    page_title="BISTeknik — Quant Terminal",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -184,18 +184,14 @@ def fetch_bist_tradingview(symbol_raw: str):
                 if close_p is None:
                     return None
 
-                # Gerçek kapanış trendini ve eksi/artı mum yapısını simüle eden tarih dizisi
                 dates = pd.date_range(end=datetime.datetime.now(), periods=30, freq='D')
-                
-                # Değişime göre doğru son mum rengi üretme (Eksi ise Close < Open)
                 base_p = close_p / (1 + (change_pct / 100.0)) if change_pct else close_p
                 closes = np.linspace(base_p, close_p, 30)
                 
-                # Rasgele dalgalanma ekle (Grafik tam düz olmasın)
                 np.random.seed(int(close_p * 100) % 1000)
                 noise = (np.random.rand(30) - 0.5) * (close_p * 0.015)
                 closes = closes + noise
-                closes[-1] = close_p  # Son fiyatı tam sabitle
+                closes[-1] = close_p
 
                 opens = np.roll(closes, 1)
                 opens[0] = closes[0] * 0.995
@@ -305,7 +301,7 @@ def get_quick_market_data():
     return data
 
 def analyze_with_ai(user_prompt, market_data, history, client):
-    """AI Analiz Motoru (Geliştirilmiş Doğru Analiz Kuralları İle)."""
+    """AI Analiz Motoru (Düzeltilmiş Teknik Analiz Kuralları İle)."""
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
         last_rsi = float(df['RSI'].iloc[-1]) if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]) else 50.0
@@ -322,11 +318,11 @@ def analyze_with_ai(user_prompt, market_data, history, client):
         data_str = "UYARI: Canlı veri çekilemedi."
 
     system_instruction = (
-        "Sen 'T' adında profesyonel bir quant borsa analistisin.\n"
+        "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n"
         "ÇOK ÖNEMLİ KURAL 1: Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
         "ÇOK ÖNEMLİ KURAL 2 (TEKNİK ANALİZ MANTIĞI):\n"
-        "- Fiyat desteğin altına kırılırsa SATIŞ BASKISI artar (alıcı değil).\n"
-        "- Fiyat direnci yukarı kırarsa ALIM BASKISI artar (satıcı değil).\n"
+        "- Fiyat desteğin altına kırılırsa SATIŞ BASKISI artar.\n"
+        "- Fiyat direnci yukarı kırarsa ALIM BASKISI artar.\n"
         "- Sembol adlarını yazarken harf hatası yapma (Örn: GARAN.IS tam yazılmalı).\n"
         f"Mevcut Canlı Pazar Verisi:\n{data_str}\n"
         "Analizini teknik indikatörleri temel alarak net, otoriter ve profesyonel borsa terminali üslubuyla sun."
@@ -343,10 +339,24 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     except Exception as err:
         return f"⚠️ AI Analiz Hatası: {err}"
 
-# --- SIDEBAR (SOL MENÜ) ---
+# --- SIDEBAR (SOL MENÜ & BISTeknik LOGO) ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #2563eb; font-size: 1.1rem; margin:0;'>⚡ T — TERMINAL</h3>", unsafe_allow_html=True)
-    st.caption("Quantitative Trading Core")
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; margin-top: 5px;">
+        <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="36" height="36" rx="8" fill="#eff6ff"/>
+            <path d="M7 26L14 18L19 22L29 11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M23 11H29V17" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="14" cy="18" r="2" fill="#2563eb"/>
+            <circle cx="19" cy="22" r="2" fill="#2563eb"/>
+            <circle cx="29" cy="11" r="2" fill="#16a34a"/>
+        </svg>
+        <div>
+            <h2 style="margin:0; font-size: 1.15rem; color: #0f172a; font-weight: 800; line-height: 1;">BIST<span style="color: #2563eb;">eknik</span></h2>
+            <span style="font-size: 0.62rem; color: #64748b; font-weight: 700; letter-spacing: 0.3px;">QUANT TERMINAL</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown("---")
 
     groq_api_key = st.text_input("Groq API Key:", type="password")
@@ -384,7 +394,7 @@ col_left, col_right = st.columns([1.6, 1.0], gap="small")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "⚡ **T Terminal Çevrimiçi.** Bir hisse/kripto/endeks seçin veya yazın."}
+        {"role": "assistant", "content": "⚡ **BISTeknik Terminal Çevrimiçi.** Bir hisse seçin veya yazın."}
     ]
 
 # SOL PANEL (GRAFİK ENGINE & BIST 100 HİSSE LİSTESİ)
@@ -408,7 +418,7 @@ with col_left:
         df = market_data["df"].tail(90)
         
         is_negative = market_data['change'] < 0
-        trend_color = '#dc2626' if is_negative else '#16a34a' # Eksi ise Kırmızı, Artı ise Yeşil
+        trend_color = '#dc2626' if is_negative else '#16a34a'
         
         st.markdown(
             f"✅ **{market_data['symbol']}** Canlı Veri | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
@@ -424,7 +434,6 @@ with col_left:
             row_heights=[0.72, 0.28]
         )
 
-        # Doğru Eksi/Artı Renklendirmeli Mum Grafiği
         fig.add_trace(go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name="Fiyat (Mum)",
@@ -432,7 +441,6 @@ with col_left:
             decreasing_line_color='#dc2626', decreasing_fillcolor='#dc2626'
         ), row=1, col=1)
 
-        # Hissenin Güncel Trendini Vurgulayan Çizgi
         fig.add_trace(go.Scatter(
             x=df.index, y=df['Close'], mode='lines', name='Trend Çizgisi',
             line=dict(color=trend_color, width=1.5)
