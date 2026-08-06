@@ -117,15 +117,12 @@ def evolve_self(user_instruction: str) -> str:
         with open(APP_FILE, "r", encoding="utf-8") as f:
             current_code = f.read()
 
-        prompt = f"""
-        Sen expert bir Python ve Streamlit geliştiricisisin.
-        Aşağıda `app.py` kodları bulunmaktadır:
-        ```python
-        {current_code}
-        ```
-        Kullanıcı İsteği: "{user_instruction}"
-        GÖREVİN: Koda istenen yeni özelliği hatasız ekle ve SADECE çalışan tam Python kodunu döndür.
-        """
+        prompt = (
+            "Sen expert bir Python ve Streamlit geliştiricisisin.\n"
+            f"Aşağıda app.py kodları bulunmaktadır:\n```python\n{current_code}\n```\n"
+            f'Kullanıcı İsteği: "{user_instruction}"\n'
+            "GÖREVİN: Koda istenen yeni özelliği hatasız ekle ve SADECE çalışan tam Python kodunu döndür."
+        )
 
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -187,4 +184,86 @@ def analyze_with_ai(user_prompt: str, market_data: dict, history: list) -> str:
         last_rsi = market_data['df']['RSI'].iloc[-1] if 'RSI' in market_data['df'] else 0
         data_str = f"Varlık: {market_data['symbol']} | Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f} | Son RSI(14): {last_rsi:.1f}"
 
-    system_instruction = f"Sen '
+    system_instruction = (
+        "Sen 'T' adında uzman bir finans analistisin. "
+        f"Canlı Veri: {data_str}. "
+        "Teknik göstergeleri (RSI, Hareketli Ortalamalar) değerlendirerek Türkçe profesyonel yanıt ver."
+    )
+
+    messages = [{"role": "system", "content": system_instruction}]
+    for msg in history[-4:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": user_prompt})
+
+    try:
+        res = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages, temperature=0.3)
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ Hata: {e}"
+
+def detect_symbol_with_ai(user_input: str, history: list) -> str:
+    prompt = f"Geçmiş: {history[-2:]}\nSon Mesaj: '{user_input}'\nBorsa/Kripto kodu nedir? (Örn: THYAO.IS, BTC-USD). Yoksa 'YOK' yaz."
+    try:
+        res = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt}], temperature=0.0)
+        code = res.choices[0].message.content.strip().upper()
+        return None if "YOK" in code or len(code) > 12 else code
+    except Exception:
+        return None
+
+# --- SOHBET VE EKRAN YÖNETİMİ ---
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Merhaba! Ben **T**.\n- Finansal sorular sorabilirsiniz (`THY analizi`, `Bitcoin RSI durumu` vb.)\n- Koduma özellik ekletebilirsiniz."}
+    ]
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+if prompt := st.chat_input("T'ye bir soru sorun veya kod güncellemesi isteyin..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        if any(w in prompt.lower() for w in ["koduna ekle", "kendine ekle", "özellik ekle", "sayfaya ekle", "butonu ekle", "kodunu değiştir"]):
+            with st.spinner("🛠️ T kendi kodunu düzenliyor..."):
+                status_msg = evolve_self(prompt)
+                st.markdown(status_msg)
+                st.session_state.messages.append({"role": "assistant", "content": status_msg})
+                if "başarıyla güncellendi" in status_msg:
+                    st.rerun()
+        else:
+            with st.spinner("T teknik verileri inceliyor..."):
+                symbol = detect_symbol_with_ai(prompt, st.session_state.messages)
+                market_data = fetch_data(symbol) if symbol else None
+                ai_response = analyze_with_ai(prompt, market_data, st.session_state.messages)
+                st.markdown(ai_response)
+
+                if market_data and market_data.get("df") is not None:
+                    df = market_data["df"].tail(90)
+                    
+                    fig = make_subplots(
+                        rows=2, cols=1, 
+                        shared_xaxes=True, 
+                        vertical_spacing=0.08, 
+                        subplot_titles=(f"{market_data['symbol']} Fiyat & SMA", "RSI (14)"),
+                        row_heights=[0.7, 0.3]
+                    )
+
+                    fig.add_trace(go.Candlestick(
+                        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name="Fiyat"
+                    ), row=1, col=1)
+
+                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='orange', width=1.5)), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='blue', width=1.5)), row=1, col=1)
+
+                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='purple', width=1.5)), row=2, col=1)
+
+                    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+                    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+
+                    fig.update_layout(height=500, xaxis_rangeslider_visible=False, showlegend=True)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                st.session_state.messages.append({"role": "assistant", "content": ai_response})
