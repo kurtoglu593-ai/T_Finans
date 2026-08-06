@@ -169,7 +169,6 @@ st.markdown("""
         color: #f1f5f9 !important;
     }
     
-    /* 📍 CHAT INPUT DÜZELTİLDİ */
     [data-testid="stChatInput"] {
         background: rgba(255, 255, 255, 0.08) !important;
         border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -377,11 +376,9 @@ def fetch_bist_tradingview(symbol_raw: str):
     session = get_browser_session()
     ticker_clean = symbol_raw.replace(".IS", "").replace("^", "").upper()
     
-    # 📍 BIST ANA için doğru sembol - DÜZELTİLDİ
     if ticker_clean in ["XU100", "BIST100"]:
         tv_symbol = "BIST:XU100"
     elif ticker_clean in ["XBANA", "XBANA.IS"]:
-        # BIST ANA'yı BIST 100'den alıp oranlayacağız
         tv_symbol = "BIST:XU100"
     else:
         tv_symbol = f"BIST:{ticker_clean}"
@@ -441,7 +438,6 @@ def fetch_bist_tradingview(symbol_raw: str):
                 df_res['SMA50'] = df_res['Close'].rolling(Config.SMA_SLOW).mean()
                 df_res['RSI'] = rsi_val
 
-                # 📍 Display name düzeltmesi
                 if ticker_clean == "XU100":
                     display_name = "BIST 100"
                 elif ticker_clean in ["XBANA", "XBANA.IS"]:
@@ -631,19 +627,14 @@ def get_top_volume_bist100_symbols():
         }
     return top_tickers
 
-# 📍 BIST ANA için özel veri çekme fonksiyonu - DÜZELTİLDİ
 def fetch_bist_ana_data():
     """BIST ANA (XBANA) verisini çekmek için özel fonksiyon."""
     
-    # Önce BIST 100'ü çek
     bist100_data = fetch_bist_tradingview("^XU100")
     if bist100_data:
-        # BIST ANA = BIST 100 * 0.68 (gerçek oran yaklaşık olarak bu)
-        # Gerçek BIST ANA değeri genellikle BIST 100'ün %65-70'i arasındadır
         ana_price = bist100_data['price'] * 0.68
         ana_change = bist100_data['change'] * 0.7
         
-        # ANA için ayrı bir dataframe oluştur
         df_ana = bist100_data['df'].copy()
         df_ana['Open'] = df_ana['Open'] * 0.68
         df_ana['High'] = df_ana['High'] * 0.68
@@ -662,7 +653,6 @@ def fetch_bist_ana_data():
             "df": df_ana
         }
     
-    # Hiçbiri olmazsa fallback
     return {
         "symbol": "BIST ANA",
         "price": 9500.0,
@@ -670,8 +660,10 @@ def fetch_bist_ana_data():
         "currency": "TRY",
         "support": 9300.0,
         "resistance": 9700.0,
-        "df": None    }
+        "df": None
+    }
 
+# 📍 ANALYZE WITH AI - DÜZELTİLDİ
 def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], history: list, client) -> str:
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
@@ -681,12 +673,17 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
         else:
             last_rsi = float(calculate_rsi(df['Close'], Config.RSI_PERIOD).iloc[-1])
         
-        sma20 = float(df['SMA20'].iloc[-1]) if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
-        sma50 = float(df['SMA50'].iloc[-1]) if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None
-        
+        # 📍 SMA değerlerini güvenli şekilde al
+        sma20 = df['SMA20'].iloc[-1] if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
+        sma50 = df['SMA50'].iloc[-1] if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None        
         last_close = float(market_data['price'])
         trend_text, trend_icon = determine_trend(last_close, sma20, sma50)
         rsi_comment, _ = get_rsi_comment(last_rsi)
+        
+        # 📍 None değerleri için güvenli format
+        sma20_str = f"{sma20:.2f}" if sma20 is not None else "Hesaplanıyor..."
+        sma50_str = f"{sma50:.2f}" if sma50 is not None else "Hesaplanıyor..."
+        currency = market_data['currency'] if sma20 is not None else ""
         
         data_str = (
             f"📊 KESİN GERÇEK VERİLER:\n"
@@ -694,8 +691,8 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
             f"- Canlı Son Fiyat: {market_data['price']:.2f} {market_data['currency']}\n"
             f"- Günlük Değişim: %{market_data['change']:+.2f}\n"
             f"- RSI(14): {last_rsi:.1f} ({rsi_comment})\n"
-            f"- SMA20: {sma20:.2f} {market_data['currency'] if sma20 else 'Hesaplanıyor...'}\n"
-            f"- SMA50: {sma50:.2f} {market_data['currency'] if sma50 else 'Hesaplanıyor...'}\n"
+            f"- SMA20: {sma20_str} {currency}\n"
+            f"- SMA50: {sma50_str} {currency}\n"
             f"- Trend Durumu: {trend_icon} {trend_text}\n"
             f"- Destek Seviyesi: {market_data['support']:.2f} {market_data['currency']}\n"
             f"- Direnç Seviyesi: {market_data['resistance']:.2f} {market_data['currency']}"
@@ -840,7 +837,6 @@ with logo_and_summary_cols[1]:
     
     summary_metrics = {}
     
-    # 📍 BIST 100
     try:
         bist100_data = fetch_bist_tradingview("^XU100")
         if bist100_data:
@@ -853,7 +849,6 @@ with logo_and_summary_cols[1]:
     except:
         summary_metrics["BIST 100"] = {"price": 10250.0, "change": 1.2}
     
-    # 📍 BIST ANA - DÜZELTİLDİ
     try:
         bist_ana_data = fetch_bist_ana_data()
         if bist_ana_data:
@@ -862,13 +857,11 @@ with logo_and_summary_cols[1]:
                 "change": bist_ana_data['change']
             }
         else:
-            # Son çare fallback
             summary_metrics["BIST ANA"] = {"price": 9500.0, "change": 0.5}
     except Exception as e:
         logger.error(f"BIST ANA hatası: {e}")
         summary_metrics["BIST ANA"] = {"price": 9500.0, "change": 0.5}
     
-    # 📍 Döviz kurları
     summary_metrics["USD/TRY"] = {"price": 34.50, "change": 0.15}
     summary_metrics["EUR/TRY"] = {"price": 37.20, "change": 0.20}
     
@@ -1025,7 +1018,6 @@ with col_left:
 
         st.plotly_chart(fig, use_container_width=True, key=f"chart_{active_symbol}_{time.time()}")
         
-        # Teknik indikatör özeti
         sma20_val = df['SMA20'].iloc[-1] if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else None
         sma50_val = df['SMA50'].iloc[-1] if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else None
         
@@ -1063,7 +1055,7 @@ with col_left:
         st.error(f"❌ **{active_symbol}** için borsadan canlı veri alınamadı.")
         st.info("💡 Öneriler:\n- Sembol kodunu kontrol edin (örn: THYAO.IS)\n- Borsa açık mı kontrol edin\n- Daha sonra tekrar deneyin")
 
-# 📍 SAĞ PANEL - CHAT DÜZELTİLDİ
+# SAĞ PANEL
 with col_right:
     st.markdown("""
     <div class='t-panel-header'>
@@ -1072,14 +1064,12 @@ with col_right:
     </div>
     """, unsafe_allow_html=True)
     
-    # Chat container
     chat_container = st.container(height=380)
     with chat_container:
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
     
-    # 📍 CHAT INPUT - DÜZELTİLDİ
     prompt = st.chat_input("Soru veya sembol yazın...", key="chat_input")
     
     if prompt:
