@@ -1,5 +1,4 @@
 import os
-import ast
 import pandas as pd
 import streamlit as st
 import yfinance as yf
@@ -23,71 +22,102 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- FINANS TERMINALI CUSTOM CSS ---
+# --- MODERN PREMIUM FINANS TERMINALI CUSTOM CSS ---
 st.markdown("""
 <style>
+    /* Genel Arka Plan ve Tipografi */
     .stApp {
-        background-color: #0B0E14;
-        color: #E1E6ED;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: radial-gradient(circle at top left, #0d1117, #05070a);
+        color: #e6edf3;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
+    
+    /* Yan Menü (Sidebar) */
     [data-testid="stSidebar"] {
-        background-color: #12161F !important;
-        border-right: 1px solid #1E2330 !important;
+        background-color: #090d14 !important;
+        border-right: 1px solid #1f293d !important;
     }
+    
     header {visibility: hidden;}
     .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 1.5rem;
+        padding-top: 1.2rem;
+        padding-bottom: 1.2rem;
         max-width: 98%;
     }
+    
+    /* Metrik Kartları (Ticker Tape) */
     [data-testid="stMetric"] {
-        background: #151922;
-        border: 1px solid #222836;
-        border-radius: 8px;
-        padding: 12px 16px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        background: linear-gradient(135deg, rgba(22, 27, 34, 0.7), rgba(13, 17, 23, 0.8));
+        border: 1px solid #21262d;
+        border-radius: 12px;
+        padding: 14px 18px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        border-color: #388bfd;
+        transform: translateY(-2px);
     }
     [data-testid="stMetricLabel"] {
-        color: #8B95A5 !important;
-        font-size: 0.82rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: #8b949e !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 1px;
     }
     [data-testid="stMetricValue"] {
-        color: #FFFFFF !important;
-        font-size: 1.4rem !important;
-        font-weight: 700 !important;
+        color: #f0f6fc !important;
+        font-size: 1.5rem !important;
+        font-weight: 800 !important;
+        font-family: 'JetBrains Mono', monospace;
     }
+    
+    /* Chat Mesaj Kutuları */
     .stChatMessage {
-        background-color: #151922 !important;
-        border: 1px solid #222836 !important;
-        border-radius: 8px !important;
-        color: #E1E6ED !important;
+        background: #0d1117 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
+    
+    /* Input & Buton Stilleri */
     .stTextInput input {
-        background-color: #181D28 !important;
-        color: #FFFFFF !important;
-        border: 1px solid #2A3142 !important;
-        border-radius: 6px !important;
+        background-color: #090d14 !important;
+        color: #58a6ff !important;
+        border: 1px solid #30363d !important;
+        border-radius: 8px !important;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .stTextInput input:focus {
+        border-color: #58a6ff !important;
+        box-shadow: 0 0 8px rgba(88, 166, 255, 0.3);
     }
     .stButton button {
-        background-color: #1E2433 !important;
-        color: #29B6F6 !important;
-        border: 1px solid #2A3142 !important;
-        border-radius: 6px !important;
+        background: linear-gradient(180deg, #1f6feb, #1158c7) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
-        width: 100%;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 12px rgba(31, 111, 235, 0.3);
         transition: all 0.2s ease;
     }
     .stButton button:hover {
-        background-color: #29B6F6 !important;
-        color: #0B0E14 !important;
-        border-color: #29B6F6 !important;
+        background: linear-gradient(180deg, #388bfd, #1f6feb) !important;
+        box-shadow: 0 4px 16px rgba(56, 139, 253, 0.5);
+        transform: translateY(-1px);
     }
+    
+    /* Bölme Çizgileri */
     hr {
-        border-color: #1E2330 !important;
+        border-color: #21262d !important;
+    }
+    
+    /* Başlık Vurguları */
+    h3 {
+        color: #f0f6fc !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -158,9 +188,9 @@ def analyze_with_ai(user_prompt, market_data, history, client):
         data_str = f"Varlık: {market_data['symbol']} | Son Fiyat: {market_data['price']:.2f} {market_data['currency']} | Değişim: %{market_data['change']:+.2f} | RSI(14): {last_rsi:.1f}"
 
     system_instruction = (
-        "Sen 'T' adında üst düzey bir borsa ve finans analistisin. "
+        "Sen 'T' adında profesyonel bir borsa ve finans analistisin. "
         "Canlı Piyasa Verisi: " + data_str + " "
-        "Yorumlarını teknik göstergelere (RSI, SMA20, SMA50) dayanarak, kısa, net ve borsa terminali üslubuyla ver."
+        "Teknik indikatörleri temel alarak kısa, net, otoriter ve borsa terminali üslubuyla yanıt ver."
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -179,7 +209,7 @@ def analyze_with_ai(user_prompt, market_data, history, client):
         return f"⚠️ Analiz Hatası: {err}"
 
 def detect_symbol_with_ai(user_input, history, client):
-    prompt = "Geçmiş: " + str(history[-2:]) + "\nSon Mesaj: '" + str(user_input) + "'\nBorsa/Kripto kodu nedir? (Örn: THYAO.IS, BTC-USD, GARAN.IS). Yoksa 'YOK' yaz."
+    prompt = "Geçmiş: " + str(history[-2:]) + "\nSon Mesaj: '" + str(user_input) + "'\nBorsa/Kripto sembolünü döndür. (Örn: THYAO.IS, BTC-USD, GARAN.IS). Yoksa 'YOK' yaz."
     try:
         res = client.chat.completions.create(
             model=MODEL_8B,
@@ -195,8 +225,8 @@ def detect_symbol_with_ai(user_input, history, client):
 
 # --- YAN MENÜ (SIDEBAR) ---
 with st.sidebar:
-    st.markdown("### ⚡ **T — TERMINAL**")
-    st.caption("Otonom Borsa & Finans Yapay Zekası")
+    st.markdown("## ⚡ **T — TERMINAL**")
+    st.caption("Pro Quantitative Trading Assistant")
     st.divider()
 
     groq_api_key = st.text_input("Groq API Key:", type="password", help="console.groq.com adresinden alabilirsiniz")
@@ -204,9 +234,9 @@ with st.sidebar:
         groq_api_key = os.environ.get("GROQ_API_KEY", "")
 
     st.divider()
-    st.markdown("#### 📌 **Favori İzleme Listesi**")
+    st.markdown("#### 📌 **İzleme Listesi**")
     watchlist_input = st.text_input("Semboller:", value="THYAO.IS, ASELS.IS, BTC-USD")
-    if st.button("🔄 İzleme Listesini Yenile"):
+    if st.button("🔄 Verileri Güncelle"):
         symbols = [s.strip().upper() for s in watchlist_input.split(",") if s.strip()]
         for sym in symbols:
             try:
@@ -220,7 +250,7 @@ with st.sidebar:
                 st.caption(f"⚠️ {sym} okunamadı.")
 
 if not groq_api_key:
-    st.info("👈 **Terminali Başlatmak İçin:** Sol menüden **Groq API Key** giriniz.")
+    st.info("👈 **Başlamak İçin:** Sol menüye **Groq API Key** giriniz.")
     st.stop()
 
 client = Groq(api_key=groq_api_key)
@@ -236,18 +266,18 @@ if market_summary:
 
 st.divider()
 
-# 2. İki Sütunlu Terminal Düzeni (Sol: Grafik & Analiz, Sağ: AI Chat)
-col_left, col_right = st.columns([1.6, 1.0], gap="medium")
+# 2. İki Sütunlu Terminal Düzeni
+col_left, col_right = st.columns([1.65, 1.0], gap="medium")
 
 # SOHBET GEÇMİŞİ BAŞLATMA
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "⚡ **T Terminal Hazır.** Finansal analiz için bir hisse/kripto adı yazın (Örn: `THYAO`, `Bitcoin`)."}
+        {"role": "assistant", "content": "⚡ **T Terminal Çevrimiçi.** Analiz etmek istediğiniz sembolü yazın (Örn: `THYAO`, `BTC-USD`)."}
     ]
 
 # SOL SÜTUN: Grafik & Teknik Panel
 with col_left:
-    st.markdown("### 📊 **Teknik Grafik & Piyasa Verisi**")
+    st.markdown("### 📊 **Piyasa Analitiği & Grafik**")
     
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
@@ -260,45 +290,48 @@ with col_left:
         fig = make_subplots(
             rows=2, cols=1, 
             shared_xaxes=True, 
-            vertical_spacing=0.05, 
-            subplot_titles=(f"{market_data['symbol']} — Fiyat & SMA (20/50)", "RSI (14) Indikatörü"),
-            row_heights=[0.7, 0.3]
+            vertical_spacing=0.03, 
+            subplot_titles=(f"{market_data['symbol']} — Fiyat Trendi & SMA", "RSI Indikatörü"),
+            row_heights=[0.72, 0.28]
         )
 
+        # Candlestick
         fig.add_trace(go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name="Fiyat",
-            increasing_line_color='#00E676', decreasing_line_color='#FF5252',
-            increasing_fillcolor='#00E676', decreasing_fillcolor='#FF5252'
+            increasing_line_color='#00e676', decreasing_line_color='#ff5252',
+            increasing_fillcolor='rgba(0, 230, 118, 0.2)', decreasing_fillcolor='rgba(255, 82, 82, 0.2)'
         ), row=1, col=1)
 
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#FFA726', width=1.5)), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#29B6F6', width=1.5)), row=1, col=1)
+        # SMAs
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#ffab00', width=1.5)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#40c4ff', width=1.5)), row=1, col=1)
 
-        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#AB47BC', width=1.5)), row=2, col=1)
-        fig.add_hline(y=70, line_dash="dash", line_color="#FF5252", row=2, col=1)
-        fig.add_hline(y=30, line_dash="dash", line_color="#00E676", row=2, col=1)
+        # RSI
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#e040fb', width=1.5)), row=2, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="#ff5252", opacity=0.6, row=2, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="#00e676", opacity=0.6, row=2, col=1)
 
         fig.update_layout(
             template="plotly_dark",
             height=580,
-            paper_bgcolor="#151922",
-            plot_bgcolor="#0B0E14",
-            margin=dict(l=10, r=10, t=35, b=10),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(13, 17, 23, 0.7)",
+            margin=dict(l=10, r=10, t=30, b=10),
             xaxis_rangeslider_visible=False,
             showlegend=True,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        fig.update_xaxes(gridcolor="#1E2330")
-        fig.update_yaxes(gridcolor="#1E2330")
+        fig.update_xaxes(gridcolor="#21262d", zerolinecolor="#21262d")
+        fig.update_yaxes(gridcolor="#21262d", zerolinecolor="#21262d")
 
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("💡 Lütfen sağ taraftaki sohbet paneline analiz etmek istediğiniz varlığı yazın (Örn: `ASELS`, `BTC-USD`).")
+        st.info("💡 Lütfen sohbet paneline analiz etmek istediğiniz varlığı yazın.")
 
 # SAĞ SÜTUN: AI Analist & Chat Paneli
 with col_right:
-    st.markdown("### 🤖 **T — Otonom AI Asistanı**")
+    st.markdown("### 🤖 **T — Yapay Zeka Analisti**")
     
     chat_container = st.container(height=480)
     with chat_container:
@@ -306,10 +339,10 @@ with col_right:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Soru sorun veya hisse analizi isteyin..."):
+    if prompt := st.chat_input("Soru sorun veya teknik analiz isteyin..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        with st.spinner("Piyasa verisi ve indikatörler taranıyor..."):
+        with st.spinner("Piyasa taranıyor..."):
             symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
             current_market_data = fetch_data(symbol) if symbol else None
             ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
