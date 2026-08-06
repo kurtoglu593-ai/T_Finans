@@ -139,23 +139,11 @@ def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
     return default_sym
 
 def calculate_rsi(series, period=14):
+    """Wilder RSI Hesaplama Motoru."""
     delta = series.diff()
-
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-
-    avg_gain = gain.ewm(
-        alpha=1 / period,
-        adjust=False
-    ).mean()
-
-    avg_loss = loss.ewm(
-        alpha=1 / period,
-        adjust=False
-    ).mean()
-
-    rs = avg_gain / avg_loss
-
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
     return 100 - (100 / (1 + rs))
 
 def get_browser_session():
@@ -169,7 +157,6 @@ def get_browser_session():
         })
         return session
 
-@st.cache_data(ttl=300)
 def fetch_bist_tradingview(symbol_raw: str):
     """TradingView REST API - Canlı Fiyat & Gerçek Mum Trendi"""
     session = get_browser_session()
@@ -243,11 +230,10 @@ def fetch_bist_tradingview(symbol_raw: str):
                     "resistance": float(high_p),
                     "df": df_res
                 }
-    except Exception as e:
-        st.error(f"Hata: {e}")
+    except Exception:
+        pass
     return None
 
-@st.cache_data(ttl=60)
 def fetch_real_market_data(symbol: str):
     """SADECE GERÇEK CANLI VERİ ÇEKER."""
     clean_sym = sanitize_symbol(symbol)
@@ -326,8 +312,8 @@ def get_top_volume_bist100_symbols():
                     chg_pct = d[2]
                     if close_p is not None and chg_pct is not None:
                         top_tickers[f"{sym_name}.IS"] = (float(close_p), float(chg_pct))
-    except Exception as e:
-        st.error(f"Hata: {e}")
+    except Exception:
+        pass
     
     # Fallback olarak TradingView verisi çekilemezse temel endeksleri ekle
     if not top_tickers:
@@ -357,36 +343,16 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     else:
         data_str = "UYARI: Canlı veri çekilemedi."
 
-    system_instruction = f"""
-Sen BISTeknik Quant Terminal'in baş analistisin.
-
-Kurallar:
-
-- Asla fiyat uydurma.
-- Sadece verilen canlı veriyi kullan.
-- Destek altı kırılım satış baskısıdır.
-- Direnç üstü kırılım alım baskısıdır.
-- RSI > 70 aşırı alım.
-- RSI < 30 aşırı satım.
-- SMA20 > SMA50 yükseliş trendi.
-- SMA20 < SMA50 düşüş trendi.
-
-Yanıt formatı:
-
-📊 Teknik Görünüm
-
-📈 Trend
-
-🎯 Dirençler
-
-🛡 Destekler
-
-⚠ Riskler
-
-✅ Sonuç
-
-{data_str}
-"""
+    system_instruction = (
+        "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n"
+        "ÇOK ÖNEMLİ KURAL 1: Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
+        "ÇOK ÖNEMLİ KURAL 2 (TEKNİK ANALİZ MANTIĞI):\n"
+        "- Fiyat desteğin altına kırılırsa SATIŞ BASKISI artar.\n"
+        "- Fiyat direnci yukarı kırarsa ALIM BASKISI artar.\n"
+        "- Sembol adlarını yazarken harf hatası yapma (Örn: GARAN.IS tam yazılmalı).\n"
+        f"Mevcut Canlı Pazar Verisi:\n{data_str}\n"
+        "Analizini teknik indikatörleri temel alarak net, otoriter ve profesyonel borsa terminali üslubuyla sun."
+    )
 
     messages = [{"role": "system", "content": system_instruction}]
     for msg in history[-4:]:
@@ -401,25 +367,6 @@ Yanıt formatı:
 
 # --- SIDEBAR (SOL MENÜ) ---
 with st.sidebar:
-    if "watchlist" not in st.session_state:
-        st.session_state.watchlist = [
-            "THYAO.IS",
-            "ASELS.IS",
-            "GARAN.IS"
-    ]
-    watchlist_input = st.text_input(
-    "Semboller:",
-    value=", ".join(st.session_state.watchlist)
-)
-    symbols = [
-    sanitize_symbol(s)
-    for s in watchlist_input.split(",")
-    if s.strip()
-]
-
-    st.session_state.watchlist = symbols
-
-    
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 5px;">
         <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -537,147 +484,85 @@ with col_left:
     
     selected_symbol_code = selected_bist_option.split(" ")[0]
     
-    active_symbol = selected_symbol_code
+    last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), selected_symbol_code)
+    active_symbol = extract_symbol_fast(last_user_query, default_sym=selected_symbol_code)
     
     market_data = fetch_real_market_data(active_symbol)
+    
+    if market_data and market_data.get("df") is not None:
+        df = market_data["df"].tail(90)
+        
+        is_negative = market_data['change'] < 0
+        trend_color = '#dc2626' if is_negative else '#16a34a'
+        
+        st.markdown(
+            f"✅ **{market_data['symbol']}** Canlı Veri | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
+            f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>)",
+            unsafe_allow_html=True
+        )
 
-if market_data and market_data.get("df") is not None:
-    df = market_data["df"].tail(90)
+        fig = make_subplots(
+            rows=2, cols=1, 
+            shared_xaxes=True, 
+            vertical_spacing=0.03, 
+            subplot_titles=(f"{market_data['symbol']} — CANDLESTICK & SMA", "RSI (14)"),
+            row_heights=[0.72, 0.28]
+        )
 
-    is_negative = market_data["change"] < 0
-    trend_color = "#dc2626" if is_negative else "#16a34a"
-
-    st.markdown(
-        f"✅ **{market_data['symbol']}** Canlı Veri | "
-        f"Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
-        f"(<span style='color:{trend_color}; font-weight:bold;'>"
-        f"%{market_data['change']:+.2f}"
-        f"</span>)",
-        unsafe_allow_html=True
-    )
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Destek",
-        f"{market_data['support']:.2f}"
-    )
-
-    c2.metric(
-        "Direnç",
-        f"{market_data['resistance']:.2f}"
-    )
-
-    c3.metric(
-        "RSI",
-        f"{df['RSI'].iloc[-1]:.1f}"
-    )
-
-    fig = make_subplots(
-        rows=2,
-        cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.03,
-        subplot_titles=(
-            f"{market_data['symbol']} — CANDLESTICK & SMA",
-            "RSI (14)"
-        ),
-        row_heights=[0.72, 0.28]
-    )
-
-    fig.add_trace(
-        go.Candlestick(
-            x=df.index,
-            open=df["Open"],
-            high=df["High"],
-            low=df["Low"],
-            close=df["Close"],
+        fig.add_trace(go.Candlestick(
+            x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name="Fiyat (Mum)",
-            increasing_line_color="#16a34a",
-            decreasing_line_color="#dc2626"
-        ),
-        row=1,
-        col=1
-    )
+            increasing_line_color='#16a34a', increasing_fillcolor='#16a34a',
+            decreasing_line_color='#dc2626', decreasing_fillcolor='#dc2626'
+        ), row=1, col=1)
 
-    fig.add_trace(
-        go.Scatter(
-            x=df.index,
-            y=df["Close"],
-            mode="lines",
-            name="Trend Çizgisi",
+        fig.add_trace(go.Scatter(
+            x=df.index, y=df['Close'], mode='lines', name='Trend Çizgisi',
             line=dict(color=trend_color, width=1.5)
-        ),
-        row=1,
-        col=1
-    )
+        ), row=1, col=1)
 
-    fig.add_trace(
-        go.Scatter(
-            x=df.index,
-            y=df["SMA20"],
-            mode="lines",
-            name="SMA 20",
-            line=dict(color="#d97706")
-        ),
-        row=1,
-        col=1
-    )
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA20'], mode='lines', name='SMA 20', line=dict(color='#d97706', width=1.2)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['SMA50'], mode='lines', name='SMA 50', line=dict(color='#2563eb', width=1.2)), row=1, col=1)
 
-    fig.add_trace(
-        go.Scatter(
-            x=df.index,
-            y=df["SMA50"],
-            mode="lines",
-            name="SMA 50",
-            line=dict(color="#2563eb")
-        ),
-        row=1,
-        col=1
-    )
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='#9333ea', width=1.5)), row=2, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="#dc2626", opacity=0.5, row=2, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="#16a34a", opacity=0.5, row=2, col=1)
 
-    fig.add_trace(
-        go.Scatter(
-            x=df.index,
-            y=df["RSI"],
-            mode="lines",
-            name="RSI",
-            line=dict(color="#9333ea")
-        ),
-        row=2,
-        col=1
-    )
+        fig.update_layout(
+            template="plotly_white",
+            height=420,  # Grafik yüksekliği optimize edildi
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#f8fafc",
+            margin=dict(l=10, r=10, t=25, b=10),
+            xaxis_rangeslider_visible=False,
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1)
+        )
+        fig.update_xaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
+        fig.update_yaxes(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0")
 
-    fig.add_hline(
-        y=70,
-        line_dash="dash",
-        line_color="#dc2626",
-        row=2,
-        col=1
-    )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.error(f"❌ **{active_symbol}** için borsadan canlı veri alınamadı.")
 
-    fig.add_hline(
-        y=30,
-        line_dash="dash",
-        line_color="#16a34a",
-        row=2,
-        col=1
-    )
+# SAĞ PANEL (AI CHAT ENGINE)
+with col_right:
+    st.markdown("<div class='t-panel-header'><span>🤖 AI QUANT ANALYST</span><span>MODEL: 70B</span></div>", unsafe_allow_html=True)
+    
+    chat_container = st.container(height=420)
+    with chat_container:
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    fig.update_layout(
-        template="plotly_white",
-        height=420,
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#f8fafc",
-        xaxis_rangeslider_visible=False
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-else:
-    st.error(
-        f"❌ {active_symbol} için canlı veri alınamadı."
-    )
+    if prompt := st.chat_input("Soru veya sembol yazın..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        with st.spinner("Canlı piyasa verileri işleniyor..."):
+            query_symbol = extract_symbol_fast(prompt, default_sym=active_symbol)
+            target_market_data = fetch_real_market_data(query_symbol) or market_data
+            
+            ai_response = analyze_with_ai(prompt, target_market_data, st.session_state.messages, client)
+            
+            st.session_state.messages.append({"role": "assistant", "content": ai_response})
+            st.rerun()
