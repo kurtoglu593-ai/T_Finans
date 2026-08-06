@@ -130,7 +130,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- YARDIMCI VE FINANSAL FONKSİYONLAR ---
+# --- FINANSAL HESAPLAMALAR VE KESİNTİSİZ VERİ ENGINE ---
+
 def sanitize_symbol(symbol: str) -> str:
     if not symbol:
         return "THYAO.IS"
@@ -147,93 +148,52 @@ def calculate_rsi(series, period=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-# YAHOO CRUMB & COOKIE SESSION OLUSTURUCU
-@st.cache_resource(ttl=3600)
-def get_yahoo_session():
-    session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-    })
-    crumb = None
+# 1. KRİPTO MOTORU (CryptoCompare - IP Kısıtlamasız)
+def fetch_cryptocompare(symbol):
     try:
-        session.get("https://fc.yahoo.com", timeout=5)
-        res = session.get("https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=5)
-        if res.status_code == 200 and res.text:
-            crumb = res.text.strip()
+        coin = symbol.split("-")[0].upper()
+        url = f"https://min-api.cryptocompare.com/data/v2/histoday?fsym={coin}&tsym=USD&limit=180"
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=6)
+        if res.status_code == 200:
+            js = res.json()
+            raw_data = js.get('Data', {}).get('Data', [])
+            if raw_data:
+                df = pd.DataFrame(raw_data)
+                df['Date'] = pd.to_datetime(df['time'], unit='s')
+                df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close'}, inplace=True)
+                df.set_index('Date', inplace=True)
+                return df
     except Exception:
         pass
-    return session, crumb
+    return None
 
-# BINANCE DIRECT API (KRİPTOLAR İÇİN KESİNTİSİZ)
-def fetch_binance_crypto(symbol):
+# 2. HISSE MOTORU (Stooq - Bulut Sunucu Korumasız Açık Veri Motoru)
+def fetch_stooq(symbol):
     try:
-        clean_pair = symbol.replace("-", "").replace("USD", "USDT")
-        url = f"https://api.binance.com/api/v3/klines?symbol={clean_pair}&interval=1d&limit=180"
-        res = requests.get(url, timeout=5)
-        if res.status_code != 200:
-            return None
-        data = res.json()
-        
-        dates, opens, highs, lows, closes = [], [], [], [], []
-        for kline in data:
-            dates.append(pd.to_datetime(kline[0], unit='ms'))
-            opens.append(float(kline[1]))
-            highs.append(float(kline[2]))
-            lows.append(float(kline[3]))
-            closes.append(float(kline[4]))
-
-        df = pd.DataFrame({'Open': opens, 'High': highs, 'Low': lows, 'Close': closes}, index=dates)
-        df['SMA20'] = df['Close'].rolling(window=20).mean()
-        df['SMA50'] = df['Close'].rolling(window=50).mean()
-        df['RSI'] = calculate_rsi(df['Close'], 14)
-
-        last_p = float(df['Close'].iloc[-1])
-        prev_p = float(df['Close'].iloc[-2])
-        pct_chg = ((last_p - prev_p) / prev_p) * 100.0
-
-        return {
-            "symbol": symbol,
-            "price": last_p,
-            "change": pct_chg,
-            "currency": "USD",
-            "df": df
-        }
+        clean_sym = symbol.lower()
+        url = f"https://stooq.com/q/d/l/?s={clean_sym}&i=d"
+        df = pd.read_csv(url)
+        if not df.empty and 'Close' in df.columns and len(df) > 5:
+            df['Date'] = pd.to_datetime(df['Date'])
+            df.set_index('Date', inplace=True)
+            df.sort_index(inplace=True)
+            return df
     except Exception:
-        return None
+        pass
+    return None
 
-# GENEL VERİ ÇEKİCİ (KRİPTO + BORSA)
-def fetch_market_data(symbol):
-    clean_sym = sanitize_symbol(symbol)
-    
-    # 1. Kripto ise doğrudan Binance API dene
-    if "BTC" in clean_sym or "ETH" in clean_sym or "-USD" in clean_sym:
-        crypto_res = fetch_binance_crypto(clean_sym)
-        if crypto_res:
-            return crypto_res
-
-    # 2. Hisse senetleri (BIST) için Crumb'lı Yahoo API kullan
-    session, crumb = get_yahoo_session()
-    crumb_param = f"&crumb={crumb}" if crumb else ""
-    
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d{crumb_param}"
-    
+# 3. YEDEK HISSE MOTORU (Yahoo Query Direct)
+def fetch_yahoo_direct(symbol):
     try:
-        res = session.get(url, timeout=6)
-        if res.status_code != 200 and not clean_sym.endswith(".IS"):
-            clean_sym = f"{clean_sym}.IS"
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d{crumb_param}"
-            res = session.get(url, timeout=6)
-
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=6m&interval=1d"
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             js = res.json()
             result = js.get('chart', {}).get('result', [])
             if result and result[0].get('timestamp'):
-                data = result[0]
-                timestamps = data.get('timestamp', [])
-                quote = data.get('indicators', {}).get('quote', [{}])[0]
-
+                timestamps = result[0]['timestamp']
+                quote = result[0]['indicators']['quote'][0]
                 df = pd.DataFrame({
                     'Date': pd.to_datetime(timestamps, unit='s'),
                     'Open': quote.get('open'),
@@ -241,41 +201,59 @@ def fetch_market_data(symbol):
                     'Low': quote.get('low'),
                     'Close': quote.get('close')
                 }).dropna()
-
                 if not df.empty:
                     df.set_index('Date', inplace=True)
-                    df['SMA20'] = df['Close'].rolling(window=20).mean()
-                    df['SMA50'] = df['Close'].rolling(window=50).mean()
-                    df['RSI'] = calculate_rsi(df['Close'], 14)
-
-                    last_p = float(df['Close'].iloc[-1])
-                    prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
-                    pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
-                    curr = 'TRY' if clean_sym.endswith('.IS') else 'USD'
-
-                    return {
-                        "symbol": clean_sym,
-                        "price": last_p,
-                        "change": pct_chg,
-                        "currency": curr,
-                        "df": df
-                    }
+                    return df
     except Exception:
         pass
+    return None
 
+# GENEL YÖNETİCİ VERİ MOTORU
+def fetch_market_data(symbol):
+    clean_sym = sanitize_symbol(symbol)
+    df = None
+
+    # Kripto İsteği ise
+    if "BTC" in clean_sym or "ETH" in clean_sym or "-USD" in clean_sym:
+        df = fetch_cryptocompare(clean_sym)
+    
+    # Hisse senedi isteği ise (Önce Stooq, sonra Yahoo dene)
+    if df is None or df.empty:
+        df = fetch_stooq(clean_sym)
+    
+    if df is None or df.empty:
+        df = fetch_yahoo_direct(clean_sym)
+
+    if df is not None and not df.empty and len(df) >= 5:
+        df['SMA20'] = df['Close'].rolling(window=20).mean()
+        df['SMA50'] = df['Close'].rolling(window=50).mean()
+        df['RSI'] = calculate_rsi(df['Close'], 14)
+
+        last_p = float(df['Close'].iloc[-1])
+        prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
+        pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
+        curr = 'TRY' if clean_sym.endswith('.IS') else 'USD'
+
+        return {
+            "symbol": clean_sym,
+            "price": last_p,
+            "change": pct_chg,
+            "currency": curr,
+            "df": df
+        }
+    
     return None
 
 @st.cache_data(ttl=120)
 def get_quick_market_data():
     tickers = {"USD/TRY": "USDTRY=X", "EUR/TRY": "EURTRY=X", "ONS ALTIN": "GC=F", "BIST 100": "^XU100"}
     data = {}
-    session, crumb = get_yahoo_session()
-    crumb_param = f"&crumb={crumb}" if crumb else ""
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
     for name, sym in tickers.items():
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d{crumb_param}"
-            res = session.get(url, timeout=4)
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d"
+            res = requests.get(url, headers=headers, timeout=4)
             if res.status_code == 200:
                 closes = res.json()['chart']['result'][0]['indicators']['quote'][0]['close']
                 valid = [c for c in closes if c is not None]
