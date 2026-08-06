@@ -142,11 +142,9 @@ def fetch_bist_tradingview(symbol_raw: str):
                 low_p = d[5] if d[5] is not None else close_p
                 rsi_val = d[7] if len(d) > 7 and d[7] is not None else 50.0
 
-                # Veri gerçekten geldiyse None dönme!
                 if close_p is None:
                     return None
 
-                # AI için gerçek mum verisi simülasyonu değil, gerçek değerlerle veri çerçevesi
                 dates = pd.date_range(end=datetime.datetime.now(), periods=10, freq='D')
                 df_real = pd.DataFrame({
                     'Open': [open_p]*10,
