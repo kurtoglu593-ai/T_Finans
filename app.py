@@ -9,7 +9,7 @@ import plotly.io as pio
 from plotly.subplots import make_subplots
 from groq import Groq
 
-# Model Tanımlamaları (Satır taşmasını önlemek için değişkene atandı)
+# Model Tanımlamaları
 MODEL_70B = "llama-3.3-70b-versatile"
 MODEL_8B = "llama-3.1-8b-instant"
 
@@ -148,30 +148,4 @@ def evolve_self(user_instruction: str) -> str:
             f.write(new_code)
 
         return "✅ Kodum başarıyla güncellendi! Sayfa yenileniyor..."
-    except Exception as e:
-        return f"❌ Hata: {e}"
-
-# --- FINANSAL HESAPLAMALAR VE VERİ ÇEKME ---
-def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
-    delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
-
-def fetch_data(symbol: str):
-    try:
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period="6m")
-        if df.empty:
-            return None
-        
-        df['SMA20'] = df['Close'].rolling(window=20).mean()
-        df['SMA50'] = df['Close'].rolling(window=50).mean()
-        df['RSI'] = calculate_rsi(df['Close'], 14)
-
-        info = ticker.fast_info
-        last_p = float(info.last_price)
-        prev_p = float(info.previous_close)
-        pct_chg = ((last_p - prev_p) / prev_p) * 100.0
-        curr = getattr(info, 'currency', 'TL')
+    except Exception as
