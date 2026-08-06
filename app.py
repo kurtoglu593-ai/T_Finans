@@ -139,11 +139,23 @@ def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
     return default_sym
 
 def calculate_rsi(series, period=14):
-    """Wilder RSI Hesaplama Motoru."""
     delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
+
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    avg_gain = gain.ewm(
+        alpha=1 / period,
+        adjust=False
+    ).mean()
+
+    avg_loss = loss.ewm(
+        alpha=1 / period,
+        adjust=False
+    ).mean()
+
+    rs = avg_gain / avg_loss
+
     return 100 - (100 / (1 + rs))
 
 def get_browser_session():
@@ -157,6 +169,7 @@ def get_browser_session():
         })
         return session
 
+@st.cache_data(ttl=300)
 def fetch_bist_tradingview(symbol_raw: str):
     """TradingView REST API - Canlı Fiyat & Gerçek Mum Trendi"""
     session = get_browser_session()
@@ -230,10 +243,11 @@ def fetch_bist_tradingview(symbol_raw: str):
                     "resistance": float(high_p),
                     "df": df_res
                 }
-    except Exception:
-        pass
+    except Exception as e:
+    st.error(f"Hata: {e}")
     return None
 
+@st.cache_data(ttl=60)
 def fetch_real_market_data(symbol: str):
     """SADECE GERÇEK CANLI VERİ ÇEKER."""
     clean_sym = sanitize_symbol(symbol)
@@ -246,7 +260,7 @@ def fetch_real_market_data(symbol: str):
 
     try:
         stooq_code = clean_sym.replace(".IS", ".TR").replace("^", "").lower()
-        stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
+       stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
         df_stooq = pd.read_csv(stooq_url)
         
         if not df_stooq.empty and 'Close' in df_stooq.columns and len(df_stooq) > 5:
@@ -312,8 +326,8 @@ def get_top_volume_bist100_symbols():
                     chg_pct = d[2]
                     if close_p is not None and chg_pct is not None:
                         top_tickers[f"{sym_name}.IS"] = (float(close_p), float(chg_pct))
-    except Exception:
-        pass
+    except Exception as e:
+    st.error(f"Hata: {e}")
     
     # Fallback olarak TradingView verisi çekilemezse temel endeksleri ekle
     if not top_tickers:
@@ -343,16 +357,36 @@ def analyze_with_ai(user_prompt, market_data, history, client):
     else:
         data_str = "UYARI: Canlı veri çekilemedi."
 
-    system_instruction = (
-        "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n"
-        "ÇOK ÖNEMLİ KURAL 1: Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
-        "ÇOK ÖNEMLİ KURAL 2 (TEKNİK ANALİZ MANTIĞI):\n"
-        "- Fiyat desteğin altına kırılırsa SATIŞ BASKISI artar.\n"
-        "- Fiyat direnci yukarı kırarsa ALIM BASKISI artar.\n"
-        "- Sembol adlarını yazarken harf hatası yapma (Örn: GARAN.IS tam yazılmalı).\n"
-        f"Mevcut Canlı Pazar Verisi:\n{data_str}\n"
-        "Analizini teknik indikatörleri temel alarak net, otoriter ve profesyonel borsa terminali üslubuyla sun."
-    )
+   system_instruction = f"""
+Sen BISTeknik Quant Terminal'in baş analistisin.
+
+Kurallar:
+
+- Asla fiyat uydurma.
+- Sadece verilen canlı veriyi kullan.
+- Destek altı kırılım satış baskısıdır.
+- Direnç üstü kırılım alım baskısıdır.
+- RSI > 70 aşırı alım.
+- RSI < 30 aşırı satım.
+- SMA20 > SMA50 yükseliş trendi.
+- SMA20 < SMA50 düşüş trendi.
+
+Yanıt formatı:
+
+📊 Teknik Görünüm
+
+📈 Trend
+
+🎯 Dirençler
+
+🛡 Destekler
+
+⚠ Riskler
+
+✅ Sonuç
+
+{data_str}
+"""
 
     messages = [{"role": "system", "content": system_instruction}]
     for msg in history[-4:]:
@@ -367,6 +401,25 @@ def analyze_with_ai(user_prompt, market_data, history, client):
 
 # --- SIDEBAR (SOL MENÜ) ---
 with st.sidebar:
+    if "watchlist" not in st.session_state:
+    st.session_state.watchlist = [
+        "THYAO.IS",
+        "ASELS.IS",
+        "GARAN.IS"
+    ]
+    watchlist_input = st.text_input(
+    "Semboller:",
+    value=", ".join(st.session_state.watchlist)
+)
+    symbols = [
+    sanitize_symbol(s)
+    for s in watchlist_input.split(",")
+    if s.strip()
+]
+
+st.session_state.watchlist = symbols
+
+    
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; margin-top: 5px;">
         <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -484,8 +537,7 @@ with col_left:
     
     selected_symbol_code = selected_bist_option.split(" ")[0]
     
-    last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), selected_symbol_code)
-    active_symbol = extract_symbol_fast(last_user_query, default_sym=selected_symbol_code)
+   active_symbol = selected_symbol_code
     
     market_data = fetch_real_market_data(active_symbol)
     
@@ -497,6 +549,22 @@ with col_left:
         
         st.markdown(
             f"✅ **{market_data['symbol']}** Canlı Veri | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
+            c1, c2, c3 = st.columns(3)
+
+c1.metric(
+    "Destek",
+    f"{market_data['support']:.2f}"
+)
+
+c2.metric(
+    "Direnç",
+    f"{market_data['resistance']:.2f}"
+)
+
+c3.metric(
+    "RSI",
+    f"{df['RSI'].iloc[-1]:.1f}"
+)
             f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>)",
             unsafe_allow_html=True
         )
