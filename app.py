@@ -2,7 +2,6 @@ import os
 import requests
 import pandas as pd
 import streamlit as st
-import yfinance as yf
 import plotly.graph_objects as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
@@ -156,45 +155,59 @@ def calculate_rsi(series, period=14):
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-def fetch_data(symbol):
+def fetch_data_direct_api(symbol):
+    """Yahoo Finance v8 REST API üzerinden direkt JSON veri çeker (Kütüphanesiz)."""
+    clean_symbol = sanitize_symbol(symbol)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    }
+    
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d"
+    
     try:
-        clean_symbol = sanitize_symbol(symbol)
+        res = requests.get(url, headers=headers, timeout=10)
         
-        # Yahoo Finance bot engellemesini aşmak için özel HTTP başlığı (User-Agent)
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
-
-        # 1. Yöntem: history ile veri çekme
-        ticker = yf.Ticker(clean_symbol, session=session)
-        df = ticker.history(period="6m", auto_adjust=True)
-        
-        # 2. Yöntem (Yedek): Eğer history boş geldiyse yf.download dene
-        if df.empty:
-            df = yf.download(clean_symbol, period="6m", progress=False, session=session)
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
-
-        # Hâlâ veri yoksa ve .IS yoksa ekleyip dene
-        if df.empty and not clean_symbol.endswith(".IS"):
+        # İlk deneme başarısız olursa ve .IS ekli değilse ekleyip dene
+        if res.status_code != 200 and not clean_symbol.endswith(".IS"):
             clean_symbol = f"{clean_symbol}.IS"
-            df = yf.download(clean_symbol, period="6m", progress=False, session=session)
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{clean_symbol}?range=6m&interval=1d"
+            res = requests.get(url, headers=headers, timeout=10)
+
+        if res.status_code != 200:
+            return None
+
+        data = res.json()
+        result = data.get('chart', {}).get('result', [])
+        if not result:
+            return None
+
+        chart_data = result[0]
+        timestamps = chart_data.get('timestamp', [])
+        indicators = chart_data.get('indicators', {}).get('quote', [{}])[0]
+
+        if not timestamps or not indicators.get('close'):
+            return None
+
+        df = pd.DataFrame({
+            'Date': pd.to_datetime(timestamps, unit='s'),
+            'Open': indicators.get('open'),
+            'High': indicators.get('high'),
+            'Low': indicators.get('low'),
+            'Close': indicators.get('close')
+        }).dropna()
 
         if df.empty:
             return None
+
+        df.set_index('Date', inplace=True)
         
-        # İndikatör Hesaplamaları
+        # Indikatör Hesaplamaları
         df['SMA20'] = df['Close'].rolling(window=20).mean()
         df['SMA50'] = df['Close'].rolling(window=50).mean()
         df['RSI'] = calculate_rsi(df['Close'], 14)
 
-        # Fiyat Bilgileri
         last_p = float(df['Close'].iloc[-1])
         prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
-        
         pct_chg = ((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0
         curr = 'TRY' if clean_symbol.endswith('.IS') else 'USD'
 
@@ -217,21 +230,23 @@ def get_quick_market_data():
         "BIST 100": "^XU100"
     }
     data = {}
-    session = requests.Session()
-    session.headers.update({'User-Agent': 'Mozilla/5.0'})
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
     for name, sym in tickers.items():
         try:
-            hist = yf.download(sym, period="2d", progress=False, session=session)
-            if isinstance(hist.columns, pd.MultiIndex):
-                hist.columns = hist.columns.get_level_values(0)
-            if len(hist) >= 2:
-                last = float(hist['Close'].iloc[-1])
-                prev = float(hist['Close'].iloc[-2])
-                chg = ((last - prev) / prev) * 100
-                data[name] = (last, chg)
-            elif len(hist) == 1:
-                data[name] = (float(hist['Close'].iloc[-1]), 0.0)
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=5d&interval=1d"
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code == 200:
+                json_data = res.json()
+                closes = json_data['chart']['result'][0]['indicators']['quote'][0]['close']
+                valid_closes = [c for c in closes if c is not None]
+                if len(valid_closes) >= 2:
+                    last = float(valid_closes[-1])
+                    prev = float(valid_closes[-2])
+                    chg = ((last - prev) / prev) * 100
+                    data[name] = (last, chg)
+                elif len(valid_closes) == 1:
+                    data[name] = (float(valid_closes[-1]), 0.0)
         except Exception:
             pass
     return data
@@ -253,7 +268,7 @@ def analyze_with_ai(user_prompt, market_data, history, client):
         "Sen 'T' adında profesyonel bir borsa ve finans analistisin. "
         "Mevcut Veri Durumu: " + data_str + " "
         "Teknik indikatörleri temel alarak kısa, net, otoriter ve borsa terminali üslubuyla yanıt ver. "
-        "Eğer veri çekilemediyse kullanıcıya sembolü doğru girdiğinden emin olmasını (Örn: THYAO veya THYAO.IS) bildir."
+        "Eğer veri çekilemediyse kullanıcıya sembolü doğru girdiğinden emin olmasını bildir."
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -301,18 +316,11 @@ with st.sidebar:
     watchlist_input = st.text_input("Semboller:", value="THYAO.IS, ASELS.IS, BTC-USD")
     if st.button("🔄 GÜNCELLE"):
         symbols = [sanitize_symbol(s) for s in watchlist_input.split(",") if s.strip()]
-        session = requests.Session()
-        session.headers.update({'User-Agent': 'Mozilla/5.0'})
         for sym in symbols:
-            try:
-                hist = yf.download(sym, period="2d", progress=False, session=session)
-                if isinstance(hist.columns, pd.MultiIndex):
-                    hist.columns = hist.columns.get_level_values(0)
-                if len(hist) >= 1:
-                    last_p = float(hist['Close'].iloc[-1])
-                    chg_p = ((last_p - float(hist['Close'].iloc[-2])) / float(hist['Close'].iloc[-2]) * 100) if len(hist) >= 2 else 0.0
-                    st.metric(label=sym, value=f"{last_p:,.2f}", delta=f"%{chg_p:+.2f}")
-            except Exception:
+            res_data = fetch_data_direct_api(sym)
+            if res_data:
+                st.metric(label=res_data['symbol'], value=f"{res_data['price']:,.2f}", delta=f"%{res_data['change']:+.2f}")
+            else:
                 st.caption(f"⚠️ {sym} okunamadı.")
 
 if not groq_api_key:
@@ -347,7 +355,7 @@ with col_left:
     last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
     active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
     
-    market_data = fetch_data(active_symbol)
+    market_data = fetch_data_direct_api(active_symbol)
     
     if market_data and market_data.get("df") is not None:
         df = market_data["df"].tail(90)
@@ -406,7 +414,7 @@ with col_right:
         
         with st.spinner("Analiz ediliyor..."):
             symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
-            current_market_data = fetch_data(symbol) if symbol else None
+            current_market_data = fetch_data_direct_api(symbol) if symbol else None
             ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
             
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
