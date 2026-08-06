@@ -281,8 +281,19 @@ def fetch_real_market_data(symbol: str):
 
 @st.cache_data(ttl=60)
 def get_quick_market_data():
-    """Üst bant piyasa özeti."""
-    tickers = {"USD/TRY": "USDTRY=X", "EUR/TRY": "EURTRY=X", "ONS ALTIN": "GC=F", "BIST 100": "^XU100", "THYAO": "THYAO.IS", "ASELS": "ASELS.IS", "GARAN": "GARAN.IS", "EREGL": "EREGL.IS"}
+    """Üst bant piyasa özeti ve Borsa İstanbul hisseleri."""
+    tickers = {
+        "BIST 100": "^XU100", 
+        "USD/TRY": "USDTRY=X", 
+        "EUR/TRY": "EURTRY=X", 
+        "ONS ALTIN": "GC=F", 
+        "THYAO (İST)": "THYAO.IS", 
+        "GARAN (İST)": "GARAN.IS", 
+        "ASELS (İST)": "ASELS.IS", 
+        "EREGL (İST)": "EREGL.IS",
+        "AKBNK (İST)": "AKBNK.IS",
+        "TUPRS (İST)": "TUPRS.IS"
+    }
     data = {}
     session = get_browser_session()
     
@@ -405,21 +416,23 @@ with logo_and_summary_cols[0]:
 with logo_and_summary_cols[1]:
     market_summary = get_quick_market_data()
     if market_summary:
-        cols = st.columns(len(market_summary))
-        for idx, (name, (val, chg)) in enumerate(market_summary.items()):
+        # Üst kartlarda sadece ana göstergeleri gösterelim
+        main_summary = {k: v for k, v in market_summary.items() if k in ["BIST 100", "USD/TRY", "EUR/TRY", "ONS ALTIN"]}
+        cols = st.columns(len(main_summary))
+        for idx, (name, (val, chg)) in enumerate(main_summary.items()):
             cols[idx].metric(label=name, value=f"{val:,.2f}", delta=f"%{chg:+.2f}")
 
-# --- CANLI AKAN PİYASA ŞERİDİ (TICKER TAPE) ---
+# --- CANLI AKAN PİYASA ŞERİDİ (TICKER TAPE - BIST100 & İSTANBUL BORSASI) ---
 if market_summary:
     ticker_items = ""
     for name, (val, chg) in market_summary.items():
         color = "#16a34a" if chg >= 0 else "#dc2626"
         sign = "+" if chg >= 0 else ""
-        ticker_items += f"<span style='margin-right: 50px; font-weight: 700; font-size: 0.85rem;'><span style='color: #64748b;'>{name}</span> <span style='color: #0f172a;'>{val:,.2f}</span> <span style='color: {color};'>({sign}{chg:.2f}%)</span></span>"
+        ticker_items += f"<span style='margin-right: 40px; font-weight: 700; font-size: 0.85rem;'><span style='color: #2563eb;'>🏛️ {name}</span> <span style='color: #0f172a;'>{val:,.2f}</span> <span style='color: {color};'>({sign}{chg:.2f}%)</span></span>"
     
     st.markdown(f"""
     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; overflow: hidden; white-space: nowrap; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-        <marquee behavior="scroll" direction="left" scrollamount="4" onmouseover="this.stop();" onmouseout="this.start();">
+        <marquee behavior="scroll" direction="left" scrollamount="5" onmouseover="this.stop();" onmouseout="this.start();">
             {ticker_items}
         </marquee>
     </div>
