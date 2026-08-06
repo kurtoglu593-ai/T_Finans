@@ -244,7 +244,7 @@ def fetch_bist_tradingview(symbol_raw: str):
                     "df": df_res
                 }
     except Exception as e:
-    st.error(f"Hata: {e}")
+        st.error(f"Hata: {e}")
     return None
 
 @st.cache_data(ttl=60)
@@ -327,7 +327,7 @@ def get_top_volume_bist100_symbols():
                     if close_p is not None and chg_pct is not None:
                         top_tickers[f"{sym_name}.IS"] = (float(close_p), float(chg_pct))
     except Exception as e:
-    st.error(f"Hata: {e}")
+        st.error(f"Hata: {e}")
     
     # Fallback olarak TradingView verisi çekilemezse temel endeksleri ekle
     if not top_tickers:
