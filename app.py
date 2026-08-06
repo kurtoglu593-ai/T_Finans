@@ -548,8 +548,13 @@ with col_left:
         trend_color = '#dc2626' if is_negative else '#16a34a'
         
         st.markdown(
-            f"✅ **{market_data['symbol']}** Canlı Veri | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
-            c1, c2, c3 = st.columns(3)
+           st.markdown(
+    f"✅ **{market_data**symbol']}** Canlı Veri | Son Fiyat: **{market_data['price']:.2f} {market_data['currency']}** "
+    f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>)",
+    unsafe_allow_html=True
+)
+
+c1, c2, c3 = st.columns(3)
 
 c1.metric(
     "Destek",
@@ -565,9 +570,6 @@ c3.metric(
     "RSI",
     f"{df['RSI'].iloc[-1]:.1f}"
 )
-            f"(<span style='color:{trend_color}; font-weight:bold;'>%{market_data['change']:+.2f}</span>)",
-            unsafe_allow_html=True
-        )
 
         fig = make_subplots(
             rows=2, cols=1, 
