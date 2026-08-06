@@ -107,14 +107,14 @@ def restore_backup():
         return True
     return False
 
-def validate_python_code(code_string: str) -> bool:
+def validate_python_code(code_string):
     try:
         ast.parse(code_string)
         return True
     except SyntaxError:
         return False
 
-def evolve_self(user_instruction: str) -> str:
+def evolve_self(user_instruction):
     try:
         with open(APP_FILE, "r", encoding="utf-8") as f:
             current_code = f.read()
@@ -123,7 +123,7 @@ def evolve_self(user_instruction: str) -> str:
             "Sen expert bir Python ve Streamlit geliştiricisisin.\n"
             "Aşağıda app.py kodları bulunmaktadır:\n"
             "```python\n" + current_code + "\n```\n"
-            "Kullanıcı İsteği: \"" + user_instruction + "\"\n"
+            "Kullanıcı İsteği: " + user_instruction + "\n"
             "GÖREVİN: Koda istenen yeni özelliği hatasız ekle ve SADECE çalışan tam Python kodunu döndür."
         )
 
@@ -148,4 +148,42 @@ def evolve_self(user_instruction: str) -> str:
             f.write(new_code)
 
         return "✅ Kodum başarıyla güncellendi! Sayfa yenileniyor..."
-    except Exception as
+    except Exception as err:
+        return f"❌ Hata: {err}"
+
+# --- FINANSAL HESAPLAMALAR VE VERİ ÇEKME ---
+def calculate_rsi(series, period=14):
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def fetch_data(symbol):
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="6m")
+        if df.empty:
+            return None
+        
+        df['SMA20'] = df['Close'].rolling(window=20).mean()
+        df['SMA50'] = df['Close'].rolling(window=50).mean()
+        df['RSI'] = calculate_rsi(df['Close'], 14)
+
+        info = ticker.fast_info
+        last_p = float(info.last_price)
+        prev_p = float(info.previous_close)
+        pct_chg = ((last_p - prev_p) / prev_p) * 100.0
+        curr = getattr(info, 'currency', 'TL')
+
+        return {
+            "symbol": symbol,
+            "price": last_p,
+            "change": pct_chg,
+            "currency": curr,
+            "df": df
+        }
+    except Exception:
+        return None
+
+@st.cache_data(ttl=
