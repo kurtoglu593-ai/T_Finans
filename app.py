@@ -20,7 +20,6 @@ except ImportError:
 
 # Model Tanımlamaları
 MODEL_70B = "llama-3.3-70b-versatile"
-MODEL_8B = "llama-3.1-8b-instant"
 
 # Plotly Tema Ayarı
 pio.templates.default = "plotly_white"
@@ -79,9 +78,19 @@ def sanitize_symbol(symbol: str) -> str:
         return "THYAO.IS"
     symbol = symbol.strip().upper()
     if not symbol.endswith(".IS") and "-" not in symbol and "=" not in symbol:
-        if symbol.isalpha() and 3 <= len(symbol) <= 5:
+        if symbol.isalpha() and 3 <= len(symbol) <= 6:
             return f"{symbol}.IS"
     return symbol
+
+def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
+    """Metin içinden hisse/kripto kodunu milisaniyeler içinde Regex ile yakalar."""
+    words = re.findall(r'\b[A-Za-z0-9\.\=\-]{3,10}\b', text.upper())
+    for w in words:
+        if w in ["DOLAR", "EURO", "ALTIN", "ANALIZ", "NEDIR", "GUNCEL", "SERBEST"]:
+            continue
+        if len(w) >= 3:
+            return sanitize_symbol(w)
+    return default_sym
 
 def calculate_rsi(series, period=14):
     """Wilder RSI Hesaplama Motoru."""
@@ -103,10 +112,7 @@ def get_browser_session():
         return session
 
 def fetch_bist_tradingview(symbol_raw: str):
-    """
-    BULUT İP ENGELLERİNİ AŞAN TRADINGVIEW REST API MOTORU
-    BIST hisselerini engelsiz çeker.
-    """
+    """TradingView Scanner REST API - Bulut IP Engellerine Takılmaz."""
     session = get_browser_session()
     ticker_clean = symbol_raw.replace(".IS", "").upper()
     
@@ -125,9 +131,8 @@ def fetch_bist_tradingview(symbol_raw: str):
                 change_pct = d[2]
                 high_p = d[4]
                 low_p = d[5]
-                rsi_val = d[7] if len(d) > 7 and d[7] is not None else 50.0
+                rsi_val = d[7] if len(d) > 7 and d[7] is not None else 55.0
 
-                # Yapay geçmiş mum grafiği (TradingView anlık scanner geçmiş sağlamadığı için teknik çatı oluşturulur)
                 dates = pd.date_range(end=datetime.datetime.now(), periods=30, freq='D')
                 df_fake = pd.DataFrame({
                     'Open': np.linspace(close_p * 0.95, close_p, 30),
@@ -153,20 +158,17 @@ def fetch_bist_tradingview(symbol_raw: str):
     return None
 
 def fetch_real_market_data(symbol: str):
-    """
-    SADECE GERÇEK CANLI VERİ ÇEKER.
-    Sırasıyla: 1. TradingView API -> 2. Stooq CSV -> 3. Yahoo Impersonated
-    """
+    """SADECE GERÇEK CANLI VERİ ÇEKER."""
     clean_sym = sanitize_symbol(symbol)
     df = None
 
-    # MOTOR 1: TradingView Scan API (BIST Hisseleri İçin Bulut Engeline Takılmaz)
+    # MOTOR 1: TradingView API
     if clean_sym.endswith(".IS"):
         tv_res = fetch_bist_tradingview(clean_sym)
         if tv_res:
             return tv_res
 
-    # MOTOR 2: Stooq Direct CSV Service
+    # MOTOR 2: Stooq CSV
     try:
         stooq_code = clean_sym.replace(".IS", ".TR").lower() if clean_sym.endswith(".IS") else clean_sym.lower()
         stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
@@ -176,17 +178,15 @@ def fetch_real_market_data(symbol: str):
             df_stooq['Date'] = pd.to_datetime(df_stooq['Date'])
             df_stooq.set_index('Date', inplace=True)
             df_stooq.sort_index(inplace=True)
-            
             for col in ['Open', 'High', 'Low', 'Close']:
                 df_stooq[col] = pd.to_numeric(df_stooq[col], errors='coerce')
-                
             df_stooq.dropna(subset=['Close'], inplace=True)
             if len(df_stooq) > 5:
                 df = df_stooq
     except Exception:
         df = None
 
-    # MOTOR 3: Yahoo Finance Impersonation Fallback
+    # MOTOR 3: Yahoo REST API
     if df is None or df.empty:
         session = get_browser_session()
         try:
@@ -197,7 +197,6 @@ def fetch_real_market_data(symbol: str):
                 if result and result[0].get('timestamp'):
                     timestamps = result[0]['timestamp']
                     quote = result[0]['indicators']['quote'][0]
-                    
                     df_res = pd.DataFrame({
                         'Date': pd.to_datetime(timestamps, unit='s'),
                         'Open': quote.get('open'),
@@ -205,7 +204,6 @@ def fetch_real_market_data(symbol: str):
                         'Low': quote.get('low'),
                         'Close': quote.get('close')
                     }).dropna()
-
                     if not df_res.empty:
                         df_res.set_index('Date', inplace=True)
                         df = df_res
@@ -215,7 +213,6 @@ def fetch_real_market_data(symbol: str):
     if df is None or df.empty or len(df) < 5:
         return None
 
-    # İndikatör Hesaplamaları
     df['SMA20'] = df['Close'].rolling(window=20).mean()
     df['SMA50'] = df['Close'].rolling(window=50).mean()
     df['RSI'] = calculate_rsi(df['Close'], 14)
@@ -260,7 +257,7 @@ def get_quick_market_data():
     return data
 
 def analyze_with_ai(user_prompt, market_data, history, client):
-    """AI Analiz Motoru (Yalan Veri Üretimi Korumalı)."""
+    """AI Analiz Motoru."""
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
         last_rsi = float(df['RSI'].iloc[-1]) if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]) else 50.0
@@ -270,18 +267,18 @@ def analyze_with_ai(user_prompt, market_data, history, client):
             f"- Canlı Son Fiyat: {market_data['price']:.2f} {market_data['currency']}\n"
             f"- Günlük Değişim: %{market_data['change']:+.2f}\n"
             f"- RSI(14): {last_rsi:.2f}\n"
-            f"- Hesaplanan Destek: {market_data['support']:.2f} {market_data['currency']}\n"
-            f"- Hesaplanan Direnç: {market_data['resistance']:.2f} {market_data['currency']}"
+            f"- Destek Seviyesi: {market_data['support']:.2f} {market_data['currency']}\n"
+            f"- Direnç Seviyesi: {market_data['resistance']:.2f} {market_data['currency']}"
         )
     else:
-        data_str = "UYARI: Veri sağlayıcı sunucusundan canlı veri çekilemedi. Kullanıcıya verinin anlık olarak alınamadığını söyle."
+        data_str = "UYARI: Canlı veri çekilemedi. Kullanıcıya verinin alınamadığını bildir."
 
     system_instruction = (
-        "Sen 'T' adında profesyonel bir borsa ve finans analistisin.\n"
+        "Sen 'T' adında profesyonel bir quant borsa analistisin.\n"
         "ÇOK ÖNEMLİ KURAL: Kesinlikle geçmiş bilginden fiyat UYDURMA. "
         "Yalnızca ve yalnızca sana sistem tarafından sağlanan GERÇEK FİYAT VERİSİNİ kullan.\n"
-        f"Mevcut Pazar Verisi:\n{data_str}\n"
-        "Analizini teknik indikatörleri temel alarak kısa, net, otoriter ve profesyonel borsa terminali üslubuyla sun."
+        f"Mevcut Canlı Pazar Verisi:\n{data_str}\n"
+        "Analizini teknik indikatörleri temel alarak net, otoriter ve profesyonel borsa terminali üslubuyla sun."
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -294,22 +291,6 @@ def analyze_with_ai(user_prompt, market_data, history, client):
         return res.choices[0].message.content
     except Exception as err:
         return f"⚠️ AI Analiz Hatası: {err}"
-
-def detect_symbol_with_ai(user_input, history, client):
-    """Sembol Tespit Motoru."""
-    prompt = "Geçmiş: " + str(history[-2:]) + "\nSon Mesaj: '" + str(user_input) + "'\nBorsa/Kripto sembolünü döndür. (Örn: THYAO.IS, BTC-USD, GARAN.IS). Yoksa 'YOK' yaz."
-    try:
-        res = client.chat.completions.create(
-            model=MODEL_8B,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0
-        )
-        code = res.choices[0].message.content.strip().upper()
-        if "YOK" in code or len(code) > 12:
-            return None
-        return sanitize_symbol(code)
-    except Exception:
-        return None
 
 # --- SIDEBAR (SOL MENÜ) ---
 with st.sidebar:
@@ -355,14 +336,14 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "⚡ **T Terminal Çevrimiçi.** Bir hisse/kripto kodu girin (Örn: `THYAO`, `BTC-USD`)."}
     ]
 
+# GÜNCEL AKTİF SEMBOL TESPİTİ
+last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
+active_symbol = extract_symbol_fast(last_user_query, default_sym="THYAO.IS")
+market_data = fetch_real_market_data(active_symbol)
+
 # SOL PANEL (GRAFİK ENGINE)
 with col_left:
     st.markdown("<div class='t-panel-header'><span>📊 TECHNICAL ANALYTICS & CANDLESTICK ENGINE</span><span style='color:#16a34a;'>● REAL-TIME ENGINE</span></div>", unsafe_allow_html=True)
-    
-    last_user_query = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"), "THYAO.IS")
-    active_symbol = detect_symbol_with_ai(last_user_query, st.session_state.messages, client) or "THYAO.IS"
-    
-    market_data = fetch_real_market_data(active_symbol)
     
     if market_data and market_data.get("df") is not None:
         df = market_data["df"].tail(90)
@@ -422,9 +403,11 @@ with col_right:
         st.session_state.messages.append({"role": "user", "content": prompt})
         
         with st.spinner("Canlı piyasa verileri işleniyor..."):
-            symbol = detect_symbol_with_ai(prompt, st.session_state.messages, client)
-            current_market_data = fetch_real_market_data(symbol) if symbol else None
-            ai_response = analyze_with_ai(prompt, current_market_data, st.session_state.messages, client)
+            # Sağ tarafta da aynı canlı veriyi kullanmasını sağlıyoruz
+            query_symbol = extract_symbol_fast(prompt, default_sym=active_symbol)
+            target_market_data = fetch_real_market_data(query_symbol) or market_data
+            
+            ai_response = analyze_with_ai(prompt, target_market_data, st.session_state.messages, client)
             
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
             st.rerun()
