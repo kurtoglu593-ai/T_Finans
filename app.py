@@ -105,23 +105,52 @@ def get_browser_session():
 def fetch_real_market_data(symbol: str):
     """
     SADECE %100 GERÇEK CANLI VERİ ÇEKER.
-    Sentetik (mock) veri üretmez! Veri çekilemezse None döner.
+    Sentetik (mock) veri üretmez! Bulut IP engellerini aşmak için çoklu kaynak (Stooq + Impersonated Yahoo) kullanır.
     """
     clean_sym = sanitize_symbol(symbol)
-    session = get_browser_session()
     df = None
 
-    # 1. Aşama: Impersonated Session ile yfinance üzerinden çekme
+    # MOTOR 1: Stooq Direct CSV Service (Bulut IP'lerini asla engellemez)
     try:
-        ticker = yf.Ticker(clean_sym, session=session)
-        df = ticker.history(period="6m", interval="1d")
-        if df.empty or len(df) < 5:
-            df = None
+        if clean_sym.endswith(".IS"):
+            stooq_code = clean_sym.replace(".IS", ".TR").lower()
+        else:
+            stooq_code = clean_sym.lower()
+            
+        stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
+        df_stooq = pd.read_csv(stooq_url)
+        
+        if not df_stooq.empty and 'Close' in df_stooq.columns and len(df_stooq) > 5:
+            # Temizlik ve Sıralama
+            df_stooq['Date'] = pd.to_datetime(df_stooq['Date'])
+            df_stooq.set_index('Date', inplace=True)
+            df_stooq.sort_index(inplace=True)
+            
+            # Sayısal veri tipine zorla
+            for col in ['Open', 'High', 'Low', 'Close']:
+                df_stooq[col] = pd.to_numeric(df_stooq[col], errors='coerce')
+                
+            df_stooq.dropna(subset=['Close'], inplace=True)
+            
+            if len(df_stooq) > 5:
+                df = df_stooq
     except Exception:
         df = None
 
-    # 2. Aşama: Yahoo Direct REST API Fallback (Bot Engelini Aşar)
+    # MOTOR 2: Impersonated Session ile Yahoo Ticker (Eğer Stooq boş döndüyse)
     if df is None or df.empty:
+        session = get_browser_session()
+        try:
+            ticker = yf.Ticker(clean_sym, session=session)
+            df_yf = ticker.history(period="6m", interval="1d")
+            if not df_yf.empty and len(df_yf) >= 5:
+                df = df_yf
+        except Exception:
+            df = None
+
+    # MOTOR 3: Yahoo Direct REST API Fallback
+    if df is None or df.empty:
+        session = get_browser_session()
         try:
             url = f"https://query2.finance.yahoo.com/v8/finance/chart/{clean_sym}?range=6m&interval=1d"
             res = session.get(url, timeout=5)
@@ -344,7 +373,7 @@ with col_left:
 
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.error(f"❌ **{active_symbol}** için borsadan anlık canlı veri alınamadı. Lütfen sembolü doğru girdiğinizden (Örn: `THYAO`, `BTC-USD`) emin olun.")
+        st.error(f"❌ **{active_symbol}** için borsadan anlık canlı veri alınamadı. Tüm veri kaynakları (Stooq, Yahoo, yFinance) geçici olarak yanıt vermedi. Lütfen sembolü doğru girdiğinizden (Örn: `THYAO`, `BTC-USD`) emin olun.")
 
 # SAĞ PANEL (AI CHAT ENGINE)
 with col_right:
