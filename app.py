@@ -9,7 +9,7 @@ import plotly.io as pio
 from plotly.subplots import make_subplots
 from groq import Groq
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple
 import time
 from tenacity import retry, stop_after_attempt, wait_exponential
 import concurrent.futures
@@ -27,27 +27,22 @@ logger = logging.getLogger(__name__)
 
 # 📍 Config sınıfı
 class Config:
-    # API ayarları
     GROQ_MODEL = "llama-3.3-70b-versatile"
     TV_SCAN_URL = "https://scanner.tradingview.com/turkey/scan"
     STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
     FX_BASE_URL = "https://api.frankfurter.app"
     
-    # API Key'ler
     ALPHA_VANTAGE_KEY = os.environ.get("ALPHA_VANTAGE_KEY", "")
     FINNHUB_KEY = os.environ.get("FINNHUB_KEY", "")
 
-    # Cache süreleri
     CACHE_TTL_SHORT = 300
     CACHE_TTL_MEDIUM = 3600
     CACHE_TTL_LONG = 86400
 
-    # Teknik indikatör parametreleri
     RSI_PERIOD = 14
     SMA_FAST = 20
     SMA_SLOW = 50
 
-    # Grafik ayarları
     CHART_HEIGHT = 450
     MAX_HISTORY_DAYS = 90
 
@@ -55,43 +50,34 @@ class Config:
 try:
     from curl_cffi import requests as cffi_requests
     HAS_CURL_CFFI = True
-    logger.info("curl_cffi başarıyla yüklendi")
 except ImportError:
     import requests as cffi_requests
     HAS_CURL_CFFI = False
-    logger.warning("curl_cffi yüklü değil, standart requests kullanılıyor")
 
-# 📍 YENİ: Yahoo Finance Entegrasyonu
+# Yahoo Finance
 try:
     import yfinance as yf
     HAS_YFINANCE = True
-    logger.info("yfinance başarıyla yüklendi")
 except ImportError:
     HAS_YFINANCE = False
-    logger.warning("yfinance yüklü değil")
 
-# 📍 YENİ: Alpha Vantage Entegrasyonu
+# Alpha Vantage
 try:
     from alpha_vantage.timeseries import TimeSeries
     HAS_ALPHA_VANTAGE = True if Config.ALPHA_VANTAGE_KEY else False
-    logger.info(f"Alpha Vantage: {'aktif' if HAS_ALPHA_VANTAGE else 'API key yok'}")
 except ImportError:
     HAS_ALPHA_VANTAGE = False
-    logger.warning("alpha_vantage yüklü değil")
 
-# 📍 YENİ: Finnhub Entegrasyonu
+# Finnhub
 try:
     import finnhub
     HAS_FINNHUB = True if Config.FINNHUB_KEY else False
-    logger.info(f"Finnhub: {'aktif' if HAS_FINNHUB else 'API key yok'}")
 except ImportError:
     HAS_FINNHUB = False
-    logger.warning("finnhub-python yüklü değil")
 
-# Model Tanımlamaları
 MODEL_70B = Config.GROQ_MODEL
 
-# BİST 100 EN ÇOK İŞLEM GÖREN İLK 100 HİSSE LİSTESİ
+# BİST 100 LİSTESİ
 BIST_100_LIST = [
     "THYAO.IS - Türk Hava Yolları", "GARAN.IS - Garanti BBVA", "EREGL.IS - Ereğli Demir Çelik",
     "AKBNK.IS - Akbank", "ISCTR.IS - İş Bankası (C)", "YKBNK.IS - Yapı Kredi Bankası",
@@ -128,10 +114,8 @@ BIST_100_LIST = [
     "IMASM.IS - İmaş Makina", "AHGAZ.IS - Ahlatcı Doğalgaz"
 ]
 
-# Plotly Tema Ayarı
 pio.templates.default = "plotly_white"
 
-# Sayfa Yapılandırması
 st.set_page_config(
     page_title="BISTeknik — Quant Terminal",
     page_icon="⚡",
@@ -139,7 +123,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- PROFESYONEL DARK TEMASI ---
+# --- DARK TEMAS ---
 st.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
@@ -163,7 +147,7 @@ st.markdown("""
         background: transparent !important;
     }
 
-    [data-testid="stMetric"], .t-panel-header, .t-card {
+    [data-testid="stMetric"], .t-panel-header {
         background: rgba(255, 255, 255, 0.05) !important;
         backdrop-filter: blur(12px) !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -172,7 +156,7 @@ st.markdown("""
         transition: all 0.3s ease !important;
     }
 
-    [data-testid="stMetric"]:hover, .t-panel-header:hover {
+    [data-testid="stMetric"]:hover {
         border-color: rgba(37, 99, 235, 0.4) !important;
         transform: translateY(-2px) !important;
         box-shadow: 0 12px 40px rgba(37, 99, 235, 0.15) !important;
@@ -348,22 +332,10 @@ st.markdown("""
         color: #f59e0b;
         border-color: rgba(245, 158, 11, 0.3);
     }
-    
-    .data-source-badge.tv {
-        background: rgba(139, 92, 246, 0.2);
-        color: #8b5cf6;
-        border-color: rgba(139, 92, 246, 0.3);
-    }
-    
-    .data-source-badge.fallback {
-        background: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
-        border-color: rgba(239, 68, 68, 0.3);
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- VERİ VE YARDIMCI FONKSİYONLAR ---
+# --- YARDIMCI FONKSİYONLAR ---
 
 def sanitize_symbol(symbol: str) -> str:
     if not symbol:
@@ -393,17 +365,7 @@ def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
             return sanitize_symbol(w)
     return default_sym
 
-def calculate_rsi(series: pd.Series, period: int = Config.RSI_PERIOD) -> pd.Series:
-    """
-    Relative Strength Index (RSI) hesaplar.
-    
-    Args:
-        series: Fiyat serisi
-        period: Hesaplama periyodu (varsayılan: 14)
-    
-    Returns:
-        RSI değerleri serisi
-    """
+def calculate_rsi(series, period=Config.RSI_PERIOD):
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).ewm(alpha=1/period, adjust=False).mean()
     loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/period, adjust=False).mean()
@@ -411,8 +373,7 @@ def calculate_rsi(series: pd.Series, period: int = Config.RSI_PERIOD) -> pd.Seri
     rsi = 100 - (100 / (1 + rs))
     return rsi.fillna(50).clip(0, 100)
 
-def determine_trend(price: float, sma20: Optional[float], sma50: Optional[float]) -> Tuple[str, str]:
-    """Trend yönünü belirle - Daha doğru algoritma"""
+def determine_trend(price, sma20, sma50):
     if sma20 is None or pd.isna(sma20):
         return "VERİ YOK", "❓"
 
@@ -429,34 +390,15 @@ def determine_trend(price: float, sma20: Optional[float], sma50: Optional[float]
             return "GÜÇLÜ YÜKSELİŞ", "📈"
         else:
             return "YÜKSELİŞ (Dönüş)", "📈"
-
     elif price < sma20 and price < sma50:
         if sma20 < sma50:
             return "GÜÇLÜ DÜŞÜŞ", "📉"
         else:
             return "DÜŞÜŞ (Dönüş)", "📉"
-
-    elif price > sma20 and price < sma50:
-        if abs(price - sma20) > abs(price - sma50):
-            return "YATAY (Dirençte)", "➡️"
-        else:
-            return "YÜKSELİŞ (Deneme)", "↗️"
-
-    elif price < sma20 and price > sma50:
-        if abs(price - sma20) > abs(price - sma50):
-            return "YATAY (Destekte)", "➡️"
-        else:
-            return "DÜŞÜŞ (Deneme)", "↘️"
-
     else:
-        if abs(price - sma20) < 0.01 * price:
-            return "SMA20 SEVİYESİ", "⚖️"
-        elif abs(price - sma50) < 0.01 * price:
-            return "SMA50 SEVİYESİ", "⚖️"
-        else:
-            return "YATAY", "➡️"
+        return "YATAY", "➡️"
 
-def get_rsi_comment(rsi_value: float) -> Tuple[str, str]:
+def get_rsi_comment(rsi_value):
     if rsi_value > 70:
         return "Aşırı Alım", "inverse"
     elif rsi_value < 30:
@@ -480,26 +422,20 @@ def get_browser_session():
             _browser_session.headers.update({
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             })
-        logger.info("Browser session oluşturuldu")
     return _browser_session
 
-# ============================================================
-# 📍 VERİ KAYNAKLARI (SIRALI DENEME)
-# ============================================================
+# --- VERİ KAYNAKLARI ---
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
 def fetch_tv_quote(tv_symbol: str) -> Optional[Dict[str, Any]]:
-    """TradingView scanner API'den SADECE canlı fiyat/değişim/RSI döner."""
     session = get_browser_session()
     payload = {
         "symbols": {"tickers": [tv_symbol]},
         "columns": ["name", "close", "change", "open", "high", "low", "volume", "RSI"]
     }
     try:
-        logger.info(f"TradingView canlı fiyat çekiliyor: {tv_symbol}")
         res = session.post(Config.TV_SCAN_URL, json=payload, timeout=5)
         if res.status_code != 200:
-            logger.warning(f"TradingView HTTP {res.status_code} ({tv_symbol})")
             return None
 
         data = res.json().get("data", [])
@@ -531,13 +467,10 @@ def tv_symbol_for(clean_sym: str) -> str:
         return "BIST:XBANA"
     return f"BIST:{ticker_clean}"
 
-def fetch_stooq_data(symbol: str) -> Optional[pd.DataFrame]:
-    """Stooq'tan GERÇEK günlük OHLC geçmişi çeker."""
+def fetch_stooq_data(symbol: str):
     try:
         stooq_code = symbol.replace(".IS", ".TR").replace("^", "").lower()
         stooq_url = f"{Config.STOOQ_BASE_URL}?s={stooq_code}&i=d"
-
-        logger.info(f"Stooq verisi çekiliyor: {symbol}")
         df_stooq = pd.read_csv(stooq_url)
 
         if not df_stooq.empty and 'Close' in df_stooq.columns and len(df_stooq) > 5:
@@ -551,41 +484,27 @@ def fetch_stooq_data(symbol: str) -> Optional[pd.DataFrame]:
             df_stooq.dropna(subset=['Close'], inplace=True)
 
             if len(df_stooq) > 5:
-                logger.info(f"Stooq verisi alındı: {symbol}")
                 return df_stooq[['Open', 'High', 'Low', 'Close']]
-
     except Exception as e:
         logger.error(f"Stooq hatası ({symbol}): {e}")
-
     return None
 
-# 📍 YENİ: Yahoo Finance Veri Kaynağı
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def fetch_yahoo_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Yahoo Finance'ten gerçek zamanlı veri çeker"""
     if not HAS_YFINANCE:
         return None
         
     try:
-        # BIST hisseleri için .IS -> .IS (Yahoo'da aynı)
         yahoo_symbol = symbol.replace(".IS", ".IS")
-        
-        # Ticker objesi oluştur
         ticker = yf.Ticker(yahoo_symbol)
-        
-        # Gerçek zamanlı veri
         info = ticker.info
         
         if not info or 'regularMarketPrice' not in info:
-            logger.warning(f"Yahoo: {symbol} için veri bulunamadı")
             return None
             
-        # Geçmiş veri (son 100 gün)
         hist = ticker.history(period="3mo")
         
         if hist.empty:
-            logger.warning(f"Yahoo: {symbol} için geçmiş veri yok")
-            # Sadece canlı veri döndür
             return {
                 "symbol": symbol,
                 "price": float(info.get('regularMarketPrice', 0)),
@@ -597,148 +516,29 @@ def fetch_yahoo_data(symbol: str) -> Optional[Dict[str, Any]]:
                 "data_source": "Yahoo Finance (sadece canlı)"
             }
         
-        # DataFrame'i hazırla
         df = hist[['Open', 'High', 'Low', 'Close']].copy()
         df.index = pd.to_datetime(df.index)
-        
-        # Teknik indikatörler
         df['SMA20'] = df['Close'].rolling(Config.SMA_FAST).mean()
         df['SMA50'] = df['Close'].rolling(Config.SMA_SLOW).mean()
         df['RSI'] = calculate_rsi(df['Close'])
         
-        last_price = float(df['Close'].iloc[-1])
-        change_pct = float(info.get('regularMarketChangePercent', 0))
-        
         return {
             "symbol": symbol,
-            "price": last_price,
-            "change": change_pct,
+            "price": float(df['Close'].iloc[-1]),
+            "change": float(info.get('regularMarketChangePercent', 0)),
             "currency": "TRY",
             "support": float(df['Low'].tail(20).min()),
             "resistance": float(df['High'].tail(20).max()),
             "df": df,
-            "data_source": "Yahoo Finance (tam veri)"
+            "data_source": "Yahoo Finance"
         }
-        
     except Exception as e:
         logger.error(f"Yahoo Finance hatası ({symbol}): {e}")
         return None
 
-# 📍 YENİ: Alpha Vantage Veri Kaynağı
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=5))
-def fetch_alpha_vantage_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Alpha Vantage API'den veri çeker"""
-    if not HAS_ALPHA_VANTAGE or not Config.ALPHA_VANTAGE_KEY:
-        return None
-        
-    try:
-        ts = TimeSeries(key=Config.ALPHA_VANTAGE_KEY, output_format='pandas')
-        
-        # Hisse senedi verisi
-        data, meta_data = ts.get_daily(symbol=symbol.replace('.IS', ''), outputsize='compact')
-        
-        if data.empty:
-            return None
-            
-        # Veriyi yeniden adlandır
-        data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-        data.index = pd.to_datetime(data.index)
-        
-        # Teknik indikatörler
-        data['SMA20'] = data['Close'].rolling(Config.SMA_FAST).mean()
-        data['SMA50'] = data['Close'].rolling(Config.SMA_SLOW).mean()
-        data['RSI'] = calculate_rsi(data['Close'])
-        
-        last_price = float(data['Close'].iloc[-1])
-        
-        return {
-            "symbol": symbol,
-            "price": last_price,
-            "change": 0.0,  # Alpha Vantage'dan değişim gelmiyor
-            "currency": "TRY",
-            "support": float(data['Low'].tail(20).min()),
-            "resistance": float(data['High'].tail(20).max()),
-            "df": data,
-            "data_source": "Alpha Vantage"
-        }
-        
-    except Exception as e:
-        logger.error(f"Alpha Vantage hatası: {e}")
-        return None
-
-# 📍 YENİ: Finnhub Veri Kaynağı
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=5))
-def fetch_finnhub_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Finnhub API'den gerçek zamanlı veri çeker"""
-    if not HAS_FINNHUB or not Config.FINNHUB_KEY:
-        return None
-        
-    try:
-        client = finnhub.Client(api_key=Config.FINNHUB_KEY)
-        
-        # Gerçek zamanlı fiyat
-        quote = client.quote(symbol.replace('.IS', ''))
-        
-        if not quote or quote.get('c', 0) == 0:
-            return None
-            
-        # Geçmiş veri (son 100 gün)
-        end_date = datetime.datetime.now()
-        start_date = end_date - datetime.timedelta(days=100)
-        
-        url = f"https://finnhub.io/api/v1/stock/candle?symbol={symbol.replace('.IS', '')}&resolution=D&from={int(start_date.timestamp())}&to={int(end_date.timestamp())}&token={Config.FINNHUB_KEY}"
-        
-        response = cffi_requests.get(url, timeout=5)
-        data = response.json()
-        
-        if data.get('s') != 'ok':
-            # Sadece canlı veri döndür
-            return {
-                "symbol": symbol,
-                "price": float(quote.get('c', 0)),
-                "change": float(quote.get('dp', 0)),
-                "currency": "TRY",
-                "support": float(quote.get('l', 0)),
-                "resistance": float(quote.get('h', 0)),
-                "df": None,
-                "data_source": "Finnhub (sadece canlı)"
-            }
-        
-        # DataFrame oluştur
-        df = pd.DataFrame({
-            'Open': data['o'],
-            'High': data['h'],
-            'Low': data['l'],
-            'Close': data['c']
-        }, index=pd.to_datetime(data['t'], unit='s'))
-        
-        # Teknik indikatörler
-        df['SMA20'] = df['Close'].rolling(Config.SMA_FAST).mean()
-        df['SMA50'] = df['Close'].rolling(Config.SMA_SLOW).mean()
-        df['RSI'] = calculate_rsi(df['Close'])
-        
-        return {
-            "symbol": symbol,
-            "price": float(quote.get('c', 0)),
-            "change": float(quote.get('dp', 0)),
-            "currency": "TRY",
-            "support": float(df['Low'].tail(20).min()),
-            "resistance": float(df['High'].tail(20).max()),
-            "df": df,
-            "data_source": "Finnhub"
-        }
-        
-    except Exception as e:
-        logger.error(f"Finnhub hatası: {e}")
-        return None
-
-# 📍 VERİ STANDARDİZASYONU
 def standardize_data(data: Dict, symbol: str) -> Optional[Dict]:
-    """Farklı kaynaklardan gelen verileri standartlaştırır"""
     try:
-        # Eğer data zaten standart formattaysa
         if 'df' in data and isinstance(data['df'], pd.DataFrame):
-            # Eksik alanları doldur
             if 'currency' not in data:
                 data['currency'] = 'TRY' if '.IS' in symbol else 'USD'
             if 'support' not in data and 'df' in data and not data['df'].empty:
@@ -747,10 +547,8 @@ def standardize_data(data: Dict, symbol: str) -> Optional[Dict]:
                 data['resistance'] = float(data['df']['High'].tail(20).max())
             return data
         
-        # TradingView'den gelen ham veriyi standartlaştır
         if 'price' in data and 'change' in data:
             if 'df' not in data:
-                # Tek satırlık veri oluştur
                 today = pd.Timestamp(datetime.datetime.now().date())
                 df_single = pd.DataFrame({
                     'Open': [data.get('open', data['price'])],
@@ -770,173 +568,101 @@ def standardize_data(data: Dict, symbol: str) -> Optional[Dict]:
                 "df": data['df'],
                 "data_source": data.get('data_source', 'Standardized')
             }
-            
     except Exception as e:
         logger.error(f"Standardizasyon hatası: {e}")
         return None
 
-# 📍 VERİ YÖNETİCİSİ (FALLBACK MEKANİZMASI)
 class MarketDataManager:
-    """Veri yönetimi ve fallback mekanizması"""
-    
     def __init__(self):
         self.cache = {}
         self.last_success = {}
-        self.failure_count = {}
         self.data_sources = []
         
-        # Veri kaynaklarını sıralı olarak ekle
         if HAS_YFINANCE:
             self.data_sources.append(('yahoo', fetch_yahoo_data))
         self.data_sources.append(('stooq', fetch_stooq_data))
         self.data_sources.append(('tradingview', lambda x: fetch_tv_quote(tv_symbol_for(x))))
-        if HAS_ALPHA_VANTAGE:
-            self.data_sources.append(('alpha_vantage', fetch_alpha_vantage_data))
-        if HAS_FINNHUB:
-            self.data_sources.append(('finnhub', fetch_finnhub_data))
-        
-        logger.info(f"Veri kaynakları: {[s[0] for s in self.data_sources]}")
         
     def get_data(self, symbol: str, force_refresh: bool = False) -> Optional[Dict]:
-        """Gelişmiş veri çekme yönetimi"""
-        
-        # Cache kontrolü
         cache_key = f"{symbol}_{datetime.datetime.now().date()}"
         if not force_refresh and cache_key in self.cache:
-            logger.info(f"Cache'den alınıyor: {symbol}")
             return self.cache[cache_key]
         
-        # Veri çek
-        result = self._fetch_with_fallback(symbol)
-        
-        if result:
-            self.cache[cache_key] = result
-            self.last_success[symbol] = datetime.datetime.now()
-            self.failure_count[symbol] = 0
-            return result
-        
-        # Fallback: Daha önce başarılı olan veriyi kullan
-        if symbol in self.last_success:
-            age = (datetime.datetime.now() - self.last_success[symbol]).seconds / 60
-            if age < 15:  # 15 dakikadan eski değilse
-                logger.warning(f"⚠️ {symbol} için eski veri kullanılıyor ({age:.1f} dakika)")
-                return self.cache.get(cache_key)
-        
-        # Fallback: Sabit örnek veri (ÇOK ACİL DURUM)
-        self.failure_count[symbol] = self.failure_count.get(symbol, 0) + 1
-        if self.failure_count[symbol] > 3:
-            logger.critical(f"🚨 {symbol} için veri alınamıyor!")
-            
-        return None
-    
-    def _fetch_with_fallback(self, symbol: str) -> Optional[Dict]:
-        """Tüm veri kaynaklarını sırayla dene"""
         clean_sym = sanitize_symbol(symbol)
-        logger.info(f"Veri çekiliyor: {clean_sym}")
         
-        last_error = None
         for source_name, fetch_func in self.data_sources:
             try:
-                logger.info(f"Deneniyor: {source_name}")
                 result = fetch_func(clean_sym)
-                
                 if result and isinstance(result, dict):
-                    # Sonuçları standartlaştır
                     standardized = standardize_data(result, clean_sym)
                     if standardized:
-                        logger.info(f"✅ {source_name} başarılı!")
+                        self.cache[cache_key] = standardized
+                        self.last_success[symbol] = datetime.datetime.now()
                         return standardized
-                        
             except Exception as e:
-                last_error = e
-                logger.warning(f"❌ {source_name} başarısız: {e}")
+                logger.warning(f"{source_name} başarısız: {e}")
                 continue
         
-        logger.error(f"⚠️ {clean_sym} için TÜM veri kaynakları başarısız!")
-        if last_error:
-            logger.error(f"Son hata: {last_error}")
+        if symbol in self.last_success:
+            age = (datetime.datetime.now() - self.last_success[symbol]).seconds / 60
+            if age < 15:
+                return self.cache.get(cache_key)
         
         return None
 
-# 📍 DATA MANAGER INSTANCE
 data_manager = MarketDataManager()
 
-# ============================================================
-# 📍 ANA VERİ ÇEKME FONKSİYONU (ARTIK DATA MANAGER KULLANIYOR)
-# ============================================================
 def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Çoklu veri kaynağı ile güvenilir veri çekme"""
     return data_manager.get_data(symbol)
 
 def validate_market_data(data: Dict[str, Any]) -> bool:
     required_fields = ['symbol', 'price', 'change', 'df']
-
     if not all(field in data for field in required_fields):
-        logger.error(f"Eksik alan: {data.keys()}")
         return False
-
     df = data['df']
     if df is None or df.empty:
-        logger.error("Veri boş")
         return False
-
     if abs(data['change']) > 20:
-        logger.warning(f"Anormal değişim: {data['change']:.2f}%")
         return False
-    
-    # Yeni kontroller
     if data['price'] <= 0:
-        logger.error(f"Geçersiz fiyat: {data['price']}")
         return False
-        
-    # Değişim oranının aşırı yüksek olmadığını kontrol et
-    if abs(data['change']) > 30:  # %30'dan fazla değişim anormal
-        logger.warning(f"Anormal değişim: {data['change']:.2f}%")
-        return False
-
     return True
 
-# 📍 BIST ANA
 def fetch_bist_ana_data():
     try:
         live = fetch_tv_quote("BIST:XBANA")
-    except Exception as e:
-        logger.error(f"BIST ANA TradingView hatası: {e}")
-        live = None
+        if live:
+            return {
+                "symbol": "BIST ANA",
+                "price": live['price'],
+                "change": live['change'],
+                "currency": "TRY",
+                "support": live['low'],
+                "resistance": live['high'],
+                "df": None
+            }
+    except:
+        pass
+    
+    if HAS_YFINANCE:
+        try:
+            yahoo_data = fetch_yahoo_data("XBANA.IS")
+            if yahoo_data:
+                return {
+                    "symbol": "BIST ANA",
+                    "price": yahoo_data['price'],
+                    "change": yahoo_data['change'],
+                    "currency": "TRY",
+                    "support": yahoo_data.get('support', 0),
+                    "resistance": yahoo_data.get('resistance', 0),
+                    "df": yahoo_data.get('df')
+                }
+        except:
+            pass
+    return None
 
-    if not live:
-        # Yedek olarak Yahoo Finance'den dene
-        if HAS_YFINANCE:
-            try:
-                yahoo_data = fetch_yahoo_data("XBANA.IS")
-                if yahoo_data:
-                    return {
-                        "symbol": "BIST ANA",
-                        "price": yahoo_data['price'],
-                        "change": yahoo_data['change'],
-                        "currency": "TRY",
-                        "support": yahoo_data.get('support', 0),
-                        "resistance": yahoo_data.get('resistance', 0),
-                        "df": yahoo_data.get('df')
-                    }
-            except:
-                pass
-        return None
-
-    return {
-        "symbol": "BIST ANA",
-        "price": live['price'],
-        "change": live['change'],
-        "currency": "TRY",
-        "support": live['low'],
-        "resistance": live['high'],
-        "df": None
-    }
-
-# 📍 DÖVİZ KURLARI
 @st.cache_data(ttl=Config.CACHE_TTL_SHORT)
 def fetch_fx_rate(pair_from: str, pair_to: str) -> Optional[Dict[str, float]]:
-    """Gerçek döviz kuru (ECB referans, Frankfurter API üzerinden)."""
     try:
         session = get_browser_session()
         today = datetime.date.today()
@@ -959,9 +685,7 @@ def fetch_fx_rate(pair_from: str, pair_to: str) -> Optional[Dict[str, float]]:
         logger.error(f"Döviz kuru hatası ({pair_from}/{pair_to}): {e}")
         return None
 
-# ============================================================
-# 📍 ANALYZE WITH AI
-# ============================================================
+# --- AI ANALİZ ---
 def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], history: list, client) -> str:
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
@@ -981,43 +705,29 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
         sma20_str = f"{sma20:.2f}" if sma20 is not None else "Yetersiz geçmiş veri"
         sma50_str = f"{sma50:.2f}" if sma50 is not None else "Yetersiz geçmiş veri"
         currency = market_data['currency']
-        
         data_source = market_data.get('data_source', 'bilinmiyor')
 
         data_str = (
-            f"📊 KESİN GERÇEK VERİLER (kaynak: {data_source}):\n"
+            f"📊 GERÇEK VERİLER (kaynak: {data_source}):\n"
             f"- Sembol: {market_data['symbol']}\n"
-            f"- Canlı Son Fiyat: {market_data['price']:.2f} {market_data['currency']}\n"
-            f"- Günlük Değişim: %{market_data['change']:+.2f}\n"
+            f"- Fiyat: {market_data['price']:.2f} {currency}\n"
+            f"- Değişim: %{market_data['change']:+.2f}\n"
             f"- RSI(14): {last_rsi:.1f} ({rsi_comment})\n"
-            f"- SMA20: {sma20_str} {currency if sma20 is not None else ''}\n"
-            f"- SMA50: {sma50_str} {currency if sma50 is not None else ''}\n"
-            f"- Trend Durumu: {trend_icon} {trend_text}\n"
-            f"- Destek Seviyesi: {market_data['support']:.2f} {market_data['currency']}\n"
-            f"- Direnç Seviyesi: {market_data['resistance']:.2f} {market_data['currency']}"
+            f"- SMA20: {sma20_str}\n"
+            f"- SMA50: {sma50_str}\n"
+            f"- Trend: {trend_icon} {trend_text}\n"
+            f"- Destek: {market_data['support']:.2f}\n"
+            f"- Direnç: {market_data['resistance']:.2f}"
         )
     else:
-        data_str = "⚠️ UYARI: Canlı veri çekilemedi. Lütfen geçerli bir sembol girin."
+        data_str = "⚠️ Canlı veri çekilemedi. Geçerli bir sembol girin."
 
     system_instruction = (
-        "Sen 'BISTeknik' adında profesyonel bir quant borsa analistisin.\n\n"
-        "📌 TEMEL KURALLAR:\n"
-        "1. Kesinlikle fiyat UYDURMA. Yalnızca sana verilen GERÇEK FİYAT VERİSİNİ kullan.\n"
-        "2. Analizini TEKNİK İNDİKATÖRLERE dayandır.\n"
-        "3. Cevabını 3-4 paragrafta, net ve öz bir şekilde ver.\n"
-        "4. Türkçe yaz, ama İngilizce terimleri doğru kullan.\n"
-        "5. Eğer veri yoksa veya sembol geçersizse, bunu açıkça belirt.\n\n"
-        "📈 TEKNİK ANALİZ KURALLARI:\n"
-        "- RSI 70 üstü = AŞIRI ALIM (satış düşünülebilir)\n"
-        "- RSI 30 altı = AŞIRI SATIM (alım düşünülebilir)\n"
-        "- Fiyat SMA20 üstünde = KISA VADE YÜKSELİŞ trendi\n"
-        "- Fiyat SMA20 altında = KISA VADE DÜŞÜŞ trendi\n"
-        "- Fiyat SMA50 üstünde = ORTA VADE YÜKSELİŞ trendi\n"
-        "- Fiyat SMA50 altında = ORTA VADE DÜŞÜŞ trendi\n"
-        "- DESTEK = Fiyatın düşerken tutunabileceği seviye\n"
-        "- DİRENÇ = Fiyatın yükselirken karşılaşacağı seviye\n\n"
-        f"Mevcut Canlı Pazar Verisi:\n{data_str}\n\n"
-        "Analizini bu verilere dayanarak yap. Son cümlede özet bir görüş belirt."
+        "Sen profesyonel bir borsa analistisin.\n"
+        "Sadece verilen GERÇEK VERİLERE göre analiz yap.\n"
+        "Cevabını 3-4 paragrafta net ve öz ver.\n"
+        "Türkçe yaz, teknik terimleri doğru kullan.\n\n"
+        f"Mevcut Veri:\n{data_str}"
     )
 
     messages = [{"role": "system", "content": system_instruction}]
@@ -1026,26 +736,18 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
     messages.append({"role": "user", "content": user_prompt})
 
     try:
-        logger.info("AI analizi başlatılıyor...")
         res = client.chat.completions.create(
             model=MODEL_70B,
             messages=messages,
             temperature=0.1,
             max_tokens=400
         )
-        response = res.choices[0].message.content
-        logger.info("AI analizi tamamlandı")
-        return response
+        return res.choices[0].message.content
     except Exception as err:
-        logger.error(f"AI analiz hatası: {err}")
         return f"⚠️ AI Analiz Hatası: {err}"
 
-# ============================================================
-# 📍 TOP VOLUME BIST100
-# ============================================================
 @st.cache_data(ttl=Config.CACHE_TTL_MEDIUM)
 def get_top_volume_bist100_symbols():
-    """Gerçek hacim sıralaması."""
     session = get_browser_session()
     url = Config.TV_SCAN_URL
     payload = {
@@ -1059,9 +761,7 @@ def get_top_volume_bist100_symbols():
     top_tickers = {}
 
     try:
-        logger.info("Hacim sıralaması çekiliyor...")
         res = session.post(url, json=payload, timeout=6)
-
         if res.status_code == 200:
             data = res.json().get("data", [])
             for item in data:
@@ -1072,18 +772,12 @@ def get_top_volume_bist100_symbols():
                     chg_pct = d[2]
                     if close_p is not None and chg_pct is not None:
                         top_tickers[f"{sym_name}.IS"] = (float(close_p), float(chg_pct))
-
-            logger.info(f"{len(top_tickers)} hisse hacim sıralaması alındı")
     except Exception as e:
         logger.error(f"Hacim sıralaması hatası: {e}")
 
     return top_tickers
 
-# ============================================================
-# 📍 PARALEL VERİ ÇEKME
-# ============================================================
 def fetch_multiple_symbols(symbols: list) -> dict:
-    """Birden fazla sembolün verisini paralel olarak çeker"""
     results = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_symbol = {
@@ -1099,7 +793,7 @@ def fetch_multiple_symbols(symbols: list) -> dict:
                 results[symbol] = None
     return results
 
-# --- SIDEBAR (SOL MENÜ) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; margin-top: 5px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
@@ -1118,50 +812,64 @@ with st.sidebar:
     groq_api_key = os.environ.get("GROQ_API_KEY")
 
     if not groq_api_key:
-        st.info("🔑 Groq API Key girin veya `.env` dosyasına ekleyin")
         groq_api_key = st.text_input("Groq API Key:", type="password", key="groq_key_input")
 
     st.markdown("---")
     
-    # 📍 YENİ: Veri Kaynağı Durumu
+    # Veri Kaynağı Durumu
     st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>🔌 VERİ KAYNAKLARI</p>", unsafe_allow_html=True)
     
-    source_status = []
-    if HAS_YFINANCE:
-        source_status.append("✅ Yahoo Finance")
-    else:
-        source_status.append("❌ Yahoo Finance (kurulu değil)")
-    source_status.append("✅ Stooq")
-    source_status.append("✅ TradingView")
-    if HAS_ALPHA_VANTAGE:
-        source_status.append("✅ Alpha Vantage")
-    else:
-        source_status.append("❌ Alpha Vantage (API key yok)")
-    if HAS_FINNHUB:
-        source_status.append("✅ Finnhub")
-    else:
-        source_status.append("❌ Finnhub (API key yok)")
-    
-    for status in source_status:
-        st.caption(status)
+    st.caption("✅ Yahoo Finance" if HAS_YFINANCE else "❌ Yahoo Finance (kurulu değil)")
+    st.caption("✅ Stooq")
+    st.caption("✅ TradingView")
     
     st.markdown("---")
+    
+    # 💼 PORTFÖY TAKİBİ (YENİ)
+    st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>💼 PORTFÖY</p>", unsafe_allow_html=True)
+    
+    portfolio_input = st.text_area("Hisse:Adet (örn: THYAO.IS:100)", height=80, key="portfolio_input")
+    
+    if st.button("📊 Hesapla", use_container_width=True):
+        if portfolio_input:
+            total_value = 0
+            portfolio_data = []
+            
+            for item in portfolio_input.split(','):
+                if ':' in item:
+                    sym, qty = item.strip().split(':')
+                    sym = sanitize_symbol(sym)
+                    qty = int(qty)
+                    
+                    data = fetch_real_market_data(sym)
+                    if data:
+                        value = data['price'] * qty
+                        total_value += value
+                        portfolio_data.append({
+                            'Sembol': sym,
+                            'Adet': qty,
+                            'Fiyat': data['price'],
+                            'Değer': value,
+                            'Değişim': data['change']
+                        })
+            
+            if portfolio_data:
+                df_portfolio = pd.DataFrame(portfolio_data)
+                st.dataframe(df_portfolio, use_container_width=True)
+                st.metric("💰 Toplam", f"{total_value:,.2f} TRY")
 
-    st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>📋 CANLI WATCHLIST</p>", unsafe_allow_html=True)
-    watchlist_input = st.text_input("Semboller (virgülle ayırın):", value="THYAO.IS, ASELS.IS, GARAN.IS", label_visibility="collapsed")
+    st.markdown("---")
+
+    st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>📋 WATCHLIST</p>", unsafe_allow_html=True)
+    watchlist_input = st.text_input("Semboller (virgülle):", value="THYAO.IS, ASELS.IS, GARAN.IS", label_visibility="collapsed")
 
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 GÜNCELLE", use_container_width=True):
             symbols = [sanitize_symbol(s.strip()) for s in watchlist_input.split(",") if s.strip()]
-
-            progress_bar = st.progress(0)
-            
-            # 📍 YENİ: Paralel veri çekme
             results = fetch_multiple_symbols(symbols)
 
             for i, sym in enumerate(symbols):
-                progress_bar.progress((i + 1) / len(symbols))
                 res_data = results.get(sym)
                 if res_data:
                     st.metric(
@@ -1169,32 +877,20 @@ with st.sidebar:
                         value=f"{res_data['price']:,.2f} {res_data['currency']}",
                         delta=f"%{res_data['change']:+.2f}"
                     )
-                    # Veri kaynağını göster
-                    st.caption(f"📡 {res_data.get('data_source', 'Bilinmiyor')}")
                 else:
-                    st.caption(f"⚠️ {sym} canlı veri alınamadı.")
-
-            progress_bar.empty()
+                    st.caption(f"⚠️ {sym} veri yok")
 
     with col2:
         if st.button("📊 ANALİZ", use_container_width=True):
-            st.info("AI analizi için sağ panelde soru sorun")
+            st.info("Sağ panelden soru sorun")
 
 # API key kontrolü
 if not groq_api_key:
-    st.warning("""
-    ⚠️ **Groq API Key bulunamadı!**
-
-    Lütfen:
-    1. 📝 Sol menüden manuel girin
-    2. 📄 `.env` dosyası oluşturun: `GROQ_API_KEY=your_key_here`
-    3. 🔄 Sayfayı yenileyin
-    """)
+    st.warning("⚠️ **Groq API Key bulunamadı!** Sol menüden girin.")
     st.stop()
 
 try:
     client = Groq(api_key=groq_api_key)
-    logger.info("Groq client başarıyla başlatıldı")
 except Exception as e:
     st.error(f"❌ Groq client hatası: {e}")
     st.stop()
@@ -1225,18 +921,12 @@ with logo_and_summary_cols[1]:
     bist100_live = None
     try:
         bist100_live = fetch_tv_quote("BIST:XU100")
-    except Exception as e:
-        logger.error(f"BIST100 hatası: {e}")
-        
-        # Yedek: Yahoo Finance
+    except:
         if HAS_YFINANCE:
             try:
                 yahoo_bist = fetch_yahoo_data("XU100.IS")
                 if yahoo_bist:
-                    bist100_live = {
-                        "price": yahoo_bist['price'],
-                        "change": yahoo_bist['change']
-                    }
+                    bist100_live = {"price": yahoo_bist['price'], "change": yahoo_bist['change']}
             except:
                 pass
 
@@ -1262,17 +952,16 @@ with logo_and_summary_cols[1]:
         val = info.get('price')
         chg = info.get('change')
         if val is None:
-            cols[idx].metric(label=name, value="— veri yok", delta=None)
+            cols[idx].metric(label=name, value="—", delta=None)
         else:
-            delta_color = "normal" if chg >= 0 else "inverse"
             cols[idx].metric(
                 label=name,
                 value=f"{val:,.2f}",
                 delta=f"%{chg:+.2f}",
-                delta_color=delta_color
+                delta_color="normal" if chg >= 0 else "inverse"
             )
 
-# --- CANLI AKAN PİYASA ŞERİDİ ---
+# Ticker Tape
 if top_volume_data:
     ticker_items = ""
     for name, (val, chg) in top_volume_data.items():
@@ -1289,12 +978,13 @@ if top_volume_data:
     </div>
     """, unsafe_allow_html=True)
 else:
-    st.caption("⚠️ Hacim sıralaması şu anda alınamıyor (TradingView bağlantı sorunu).")
+    st.caption("⚠️ Hacim sıralaması alınamıyor.")
 
 st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
 
 col_left, col_right = st.columns([1.6, 1.0], gap="small")
 
+# Chat history
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "⚡ **BISTeknik Terminal Çevrimiçi.** Bir hisse seçin veya yazın."}
@@ -1304,13 +994,13 @@ if "messages" not in st.session_state:
 with col_left:
     st.markdown("""
     <div class='t-panel-header'>
-        <span>📊 TECHNICAL ANALYTICS ENGINE</span>
+        <span>📊 TECHNICAL ANALYTICS</span>
         <span>● LIVE</span>
     </div>
     """, unsafe_allow_html=True)
 
     selected_bist_option = st.selectbox(
-        "🏛️ BIST 100 En Çok İşlem Gören Hisseler:",
+        "🏛️ BIST 100:",
         options=BIST_100_LIST,
         index=0,
         key="bist_selector"
@@ -1335,9 +1025,8 @@ with col_left:
         else:
             last_rsi = 50.0
 
-        # 📍 YENİ: Veri kaynağı badge'li başlık
         data_source = market_data.get('data_source', 'Bilinmiyor')
-        source_class = "yahoo" if "Yahoo" in data_source else "stooq" if "Stooq" in data_source else "tv" if "TradingView" in data_source else "fallback"
+        source_class = "yahoo" if "Yahoo" in data_source else "stooq" if "Stooq" in data_source else ""
         
         st.markdown(
             f"""
@@ -1354,7 +1043,7 @@ with col_left:
         )
 
         if len(df) < 5:
-            st.info("ℹ️ Bu sembol için gerçek geçmiş mum verisi bulunamadı — sadece şu anki canlı fiyat gösteriliyor. SMA/RSI için yetersiz veri.")
+            st.info("ℹ️ Geçmiş veri yetersiz, sadece canlı fiyat gösteriliyor.")
 
         fig = make_subplots(
             rows=2, cols=1,
@@ -1366,14 +1055,9 @@ with col_left:
 
         fig.add_trace(go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-            name="Fiyat (Mum)",
+            name="Mum",
             increasing_line_color='#22c55e', increasing_fillcolor='#22c55e',
             decreasing_line_color='#ef4444', decreasing_fillcolor='#ef4444'
-        ), row=1, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=df.index, y=df['Close'], mode='lines', name='Trend Çizgisi',
-            line=dict(color=trend_color, width=1.5)
         ), row=1, col=1)
 
         if 'SMA20' in df:
@@ -1396,8 +1080,6 @@ with col_left:
 
         fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", opacity=0.3, row=2, col=1)
         fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", opacity=0.3, row=2, col=1)
-        fig.add_hrect(y0=70, y1=100, line_width=0, fillcolor="#ef4444", opacity=0.05, row=2, col=1)
-        fig.add_hrect(y0=0, y1=30, line_width=0, fillcolor="#22c55e", opacity=0.05, row=2, col=1)
 
         fig.update_layout(
             template="plotly_dark",
@@ -1430,45 +1112,103 @@ with col_left:
 
         col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
         with col_metric1:
-            st.metric(
-                "RSI (14)",
-                f"{last_rsi:.1f}",
-                delta=rsi_label,
-                delta_color=rsi_color
-            )
+            st.metric("RSI (14)", f"{last_rsi:.1f}", delta=rsi_label, delta_color=rsi_color)
         with col_metric2:
-            st.metric(
-                "SMA 20",
-                f"{sma20_val:.2f}" if sma20_val else "—",
-                delta="Fiyat Üstü" if sma20_val and market_data['price'] > sma20_val else "Fiyat Altı" if sma20_val else "—"
-            )
+            st.metric("SMA 20", f"{sma20_val:.2f}" if sma20_val else "—")
         with col_metric3:
-            st.metric(
-                "SMA 50",
-                f"{sma50_val:.2f}" if sma50_val else "—",
-                delta="Fiyat Üstü" if sma50_val and market_data['price'] > sma50_val else "Fiyat Altı" if sma50_val else "—"
-            )
+            st.metric("SMA 50", f"{sma50_val:.2f}" if sma50_val else "—")
         with col_metric4:
-            st.metric(
-                "Trend",
-                f"{trend_icon} {trend_text}",
-                delta=f"%{market_data['change']:+.2f}"
-            )
+            st.metric("Trend", f"{trend_icon} {trend_text}", delta=f"%{market_data['change']:+.2f}")
+
+        # 📈 GELİŞMİŞ GÖSTERGELER (YENİ)
+        st.markdown("---")
+        st.markdown("<p style='font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.6);'>📈 GELİŞMİŞ GÖSTERGELER</p>", unsafe_allow_html=True)
+        
+        df_tech = df.tail(50).copy()
+        
+        if len(df_tech) > 26:
+            # MACD
+            exp1 = df_tech['Close'].ewm(span=12, adjust=False).mean()
+            exp2 = df_tech['Close'].ewm(span=26, adjust=False).mean()
+            macd = exp1 - exp2
+            signal = macd.ewm(span=9, adjust=False).mean()
+            
+            # Bollinger Bands
+            sma_bb = df_tech['Close'].rolling(20).mean()
+            std_bb = df_tech['Close'].rolling(20).std()
+            upper_band = sma_bb + (std_bb * 2)
+            lower_band = sma_bb - (std_bb * 2)
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                macd_val = macd.iloc[-1] if not macd.empty else 0
+                signal_val = signal.iloc[-1] if not signal.empty else 0
+                st.metric("MACD", f"{macd_val:.2f}", 
+                         delta="Alım" if macd_val > signal_val else "Satım",
+                         delta_color="normal" if macd_val > signal_val else "inverse")
+            
+            with col2:
+                last_price = market_data['price']
+                if not lower_band.empty and not upper_band.empty:
+                    bb_position = ((last_price - lower_band.iloc[-1]) / (upper_band.iloc[-1] - lower_band.iloc[-1])) * 100
+                    st.metric("Bollinger", f"%{bb_position:.1f}",
+                             delta="Üst Bant" if bb_position > 80 else "Alt Bant" if bb_position < 20 else "Orta")
+            
+            with col3:
+                # ATR
+                high_low = df_tech['High'] - df_tech['Low']
+                high_close = abs(df_tech['High'] - df_tech['Close'].shift())
+                low_close = abs(df_tech['Low'] - df_tech['Close'].shift())
+                ranges = pd.concat([high_low, high_close, low_close], axis=1)
+                true_range = ranges.max(axis=1)
+                atr = true_range.rolling(14).mean()
+                atr_val = atr.iloc[-1] if not atr.empty else 0
+                st.metric("ATR (14)", f"{atr_val:.2f}",
+                         delta=f"%{(atr_val / market_data['price'] * 100):.2f}" if market_data['price'] > 0 else "0")
+
+        # 📊 KARŞILAŞTIRMA (YENİ)
+        with st.expander("📊 Hisse Karşılaştır", expanded=False):
+            compare_symbols = st.text_input("Hisseler (virgülle):", 
+                                           value="THYAO.IS, ASELS.IS, GARAN.IS", key="compare_input")
+            
+            if st.button("Karşılaştır", key="compare_btn"):
+                symbols = [sanitize_symbol(s.strip()) for s in compare_symbols.split(",") if s.strip()]
+                
+                compare_data = {}
+                for sym in symbols:
+                    data = fetch_real_market_data(sym)
+                    if data and data.get('df') is not None:
+                        compare_data[sym] = data['df']['Close'].tail(30)
+                
+                if compare_data:
+                    fig_compare = go.Figure()
+                    for sym, series in compare_data.items():
+                        normalized = (series / series.iloc[0] - 1) * 100
+                        fig_compare.add_trace(go.Scatter(
+                            x=normalized.index,
+                            y=normalized,
+                            mode='lines',
+                            name=sym,
+                            line=dict(width=2)
+                        ))
+                    
+                    fig_compare.update_layout(
+                        title="Performans Karşılaştırması (%)",
+                        template="plotly_dark",
+                        height=250,
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(255,255,255,0.02)",
+                        yaxis_title="Değişim (%)",
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    )
+                    st.plotly_chart(fig_compare, use_container_width=True)
 
     else:
-        st.error(f"❌ **{active_symbol}** için borsadan canlı veri alınamadı.")
-        st.info("💡 Öneriler:\n- Sembol kodunu kontrol edin (örn: THYAO.IS)\n- Borsa açık mı kontrol edin\n- Geçerli bir hisse kodu girin (örn: GARAN.IS, THYAO.IS)")
-        
-        # 📍 YENİ: Veri kaynağı önerileri
-        st.warning("""
-        🔍 **Veri kaynağı sorunu mu yaşıyorsunuz?**
-        
-        1. 📦 `pip install yfinance` ile Yahoo Finance'i kurun
-        2. 🔑 Alpha Vantage veya Finnhub API key alın
-        3. 🌐 İnternet bağlantınızı kontrol edin
-        """)
+        st.error(f"❌ **{active_symbol}** için veri alınamadı.")
+        st.info("💡 Sembol kodunu kontrol edin (örn: THYAO.IS)")
 
-# SAĞ PANEL
+# SAĞ PANEL - CHAT
 with col_right:
     st.markdown("""
     <div class='t-panel-header'>
@@ -1477,16 +1217,24 @@ with col_right:
     </div>
     """, unsafe_allow_html=True)
 
+    # Chat container
     chat_container = st.container(height=380)
     with chat_container:
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
+    # Chat input - DÜZELTİLDİ: Mesajlar artık gözüküyor
     prompt = st.chat_input("Soru veya sembol yazın...", key="chat_input")
 
     if prompt:
+        # Mesajı hemen göster
         st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Chat container'ı güncelle
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
         progress_text = st.empty()
         progress_bar = st.progress(0)
@@ -1498,10 +1246,8 @@ with col_right:
             default_symbol = active_symbol if 'active_symbol' in dir() else "THYAO.IS"
             query_symbol = extract_symbol_fast(prompt, default_sym=default_symbol)
 
-            # Veri çek
             target_market_data = fetch_real_market_data(query_symbol)
             
-            # Fallback: Mevcut market_data'yı kullan
             if not target_market_data and 'market_data' in locals():
                 target_market_data = market_data
 
@@ -1517,5 +1263,12 @@ with col_right:
             progress_bar.empty()
             progress_text.empty()
 
+            # AI yanıtını ekle
             st.session_state.messages.append({"role": "assistant", "content": ai_response})
+            
+            # Chat container'ı güncelle
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown(ai_response)
+            
             st.rerun()
