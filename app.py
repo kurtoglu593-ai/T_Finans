@@ -16,29 +16,20 @@ from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 import yfinance as yf
-import base64
 
-# .env dosyasını yükle
 load_dotenv()
 
-# 📍 Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 📍 CONFIG
 class Config:
     GROQ_MODEL = "llama-3.3-70b-versatile"
-    TV_SCAN_URL = "https://scanner.tradingview.com/turkey/scan"
-    STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
-    FX_BASE_URL = "https://api.frankfurter.app"
     NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
-    
     RSI_PERIOD = 14
     SMA_FAST = 20
     SMA_SLOW = 50
     MAX_HISTORY_DAYS = 365
 
-# 📍 SAYFA AYARLARI
 st.set_page_config(
     page_title="BISTeknik PRO",
     page_icon="📈",
@@ -47,273 +38,270 @@ st.set_page_config(
 )
 
 # ============================================================
-# 🎨 SIFIRDAN TASARIM - PROFESYONEL & İLGİ ÇEKİCİ
+# 🎨 CSS — TEMİZ, OKUNUR, PROFESYONEL
 # ============================================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
-:root{--bg:#0b0f14;--panel:#111821;--panel2:#151e29;--border:#263646;--text:#e7edf4;--muted:#8b9aac;--blue:#4da3ff;}
-.stApp{background:var(--bg)}
-*{font-family:'Inter',sans-serif!important}
-.stApp,body{color:var(--text)!important}
-.block-container{max-width:1440px;padding:2rem 3rem 4rem}
-h1,h2,h3,h4,h5,h6{color:var(--text)!important;background:none!important;-webkit-text-fill-color:var(--text)!important;font-weight:700!important;letter-spacing:-.02em!important}
-h1{font-size:2.15rem!important}h2{font-size:1.55rem!important}h3{font-size:1.2rem!important}
-.stMarkdown p,label,.stCaption{color:var(--muted)!important}
-.logo-container{background:transparent!important;border:0!important;box-shadow:none!important;animation:none!important;padding:0!important;gap:12px!important}
-.logo-icon{width:42px!important;height:42px!important;border-radius:8px!important;font-size:24px!important;background:var(--blue)!important;box-shadow:none!important}
-.logo-text{color:var(--text)!important;background:none!important;-webkit-text-fill-color:var(--text)!important;font-size:22px!important}
-.logo-sub{color:var(--muted)!important;letter-spacing:2px!important}
-.stTextInput input{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:7px!important;color:var(--text)!important;font-size:15px!important;padding:12px 15px!important;box-shadow:none!important}
-.stTextInput input:focus{border-color:var(--blue)!important;box-shadow:0 0 0 1px var(--blue)!important}
-.stTextInput input::placeholder{color:#667689!important}
-.stButton button{min-height:44px!important;background:var(--blue)!important;border:0!important;border-radius:7px!important;color:#07111d!important;font-weight:700!important;box-shadow:none!important;animation:none!important}
-.stButton button:hover{background:#78baff!important;transform:none!important}.stButton button *{color:#07111d!important}
-[data-testid='stMetric']{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:8px!important;padding:15px 17px!important;box-shadow:none!important}
-[data-testid='stMetric']:hover{transform:none!important;border-color:#38516b!important}
-[data-testid='stMetricLabel']{color:var(--muted)!important;font-size:.73rem!important;letter-spacing:.04em!important}
-[data-testid='stMetricValue']{color:var(--text)!important;font-family:'JetBrains Mono',monospace!important;font-size:1.45rem!important}
-.stTabs [data-baseweb='tab-list']{gap:3px;background:var(--panel)!important;border-bottom:1px solid var(--border);padding:4px 5px 0}
-.stTabs [data-baseweb='tab']{color:var(--muted)!important;border-radius:5px 5px 0 0!important;padding:10px 16px!important}
-.stTabs [data-baseweb='tab'][aria-selected='true']{color:var(--text)!important;background:var(--panel2)!important;border-bottom:2px solid var(--blue)!important}
-[data-testid='stPlotlyChart']{background:var(--panel)!important;border:1px solid var(--border);border-radius:8px;padding:5px}
-.streamlit-expanderHeader,[data-testid='stExpander']{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:8px!important;color:var(--text)!important}
-.streamlit-expanderContent{background:var(--panel)!important}.stAlert{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:7px!important}
-[data-testid='stChatMessage']{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:8px!important;box-shadow:none!important}
-[data-testid='stChatMessage'] *{color:var(--text)!important}
-[data-testid='stChatInput']{background:var(--panel)!important;border:1px solid var(--border)!important;border-radius:7px!important}
-[data-testid='stChatInput'] input{color:var(--text)!important}[data-testid='stChatInput'] button{background:var(--blue)!important;border-radius:5px!important}
-hr{border:0!important;height:1px!important;background:var(--border)!important;margin:1.25rem 0!important}
-::-webkit-scrollbar{width:7px;height:7px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#33465a;border-radius:5px}
-@keyframes pulse-glow{from,to{box-shadow:none}}
-@media(max-width:768px){.block-container{padding:1rem .75rem 3rem}h1{font-size:1.7rem!important}}
 
+:root {
+    --bg: #0b0f14;
+    --panel: #111821;
+    --panel2: #151e29;
+    --border: #263646;
+    --text: #e7edf4;
+    --muted: #8b9aac;
+    --blue: #4da3ff;
+}
+
+.stApp {
+    background: var(--bg);
+}
+
+* {
+    font-family: 'Inter', sans-serif !important;
+}
+
+.stApp, body {
+    color: var(--text) !important;
+}
+
+.block-container {
+    max-width: 1440px;
+    padding: 2rem 3rem 4rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text) !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+}
+
+h1 { font-size: 2.15rem !important; }
+h2 { font-size: 1.55rem !important; }
+h3 { font-size: 1.2rem !important; }
+
+.stMarkdown p, label, .stCaption {
+    color: var(--muted) !important;
+}
+
+/* LOGO */
+.logo-container {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+    padding: 0 !important;
+    gap: 12px !important;
+}
+
+.logo-icon {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 8px !important;
+    font-size: 24px !important;
+    background: var(--blue) !important;
+    box-shadow: none !important;
+}
+
+.logo-text {
+    color: var(--text) !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-size: 22px !important;
+}
+
+.logo-sub {
+    color: var(--muted) !important;
+    letter-spacing: 2px !important;
+}
+
+/* SEARCH */
+.stTextInput input {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 7px !important;
+    color: var(--text) !important;
+    font-size: 15px !important;
+    padding: 12px 15px !important;
+    box-shadow: none !important;
+}
+
+.stTextInput input:focus {
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 1px var(--blue) !important;
+}
+
+.stTextInput input::placeholder {
+    color: #667689 !important;
+}
+
+/* BUTTON */
+.stButton button {
+    min-height: 44px !important;
+    background: var(--blue) !important;
+    border: 0 !important;
+    border-radius: 7px !important;
+    color: #07111d !important;
+    font-weight: 700 !important;
+    box-shadow: none !important;
+    animation: none !important;
+}
+
+.stButton button:hover {
+    background: #78baff !important;
+    transform: none !important;
+}
+
+.stButton button * {
+    color: #07111d !important;
+}
+
+/* METRICS */
+[data-testid="stMetric"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    padding: 15px 17px !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stMetric"]:hover {
+    transform: none !important;
+    border-color: #38516b !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--muted) !important;
+    font-size: 0.73rem !important;
+    letter-spacing: 0.04em !important;
+}
+
+[data-testid="stMetricValue"] {
+    color: var(--text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 1.45rem !important;
+}
+
+/* TABS */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 3px;
+    background: var(--panel) !important;
+    border-bottom: 1px solid var(--border);
+    padding: 4px 5px 0;
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: var(--muted) !important;
+    border-radius: 5px 5px 0 0 !important;
+    padding: 10px 16px !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    color: var(--text) !important;
+    background: var(--panel2) !important;
+    border-bottom: 2px solid var(--blue) !important;
+}
+
+/* CHART */
+[data-testid="stPlotlyChart"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* EXPANDER */
+.streamlit-expanderHeader,
+[data-testid="stExpander"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    color: var(--text) !important;
+}
+
+.streamlit-expanderContent {
+    background: var(--panel) !important;
+}
+
+/* ALERT */
+.stAlert {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 7px !important;
+}
+
+/* CHAT — SADECE BURASI SİYAH */
+[data-testid="stChatMessage"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stChatMessage"] * {
+    color: var(--text) !important;
+}
+
+[data-testid="stChatInput"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 7px !important;
+}
+
+[data-testid="stChatInput"] input {
+    color: var(--text) !important;
+}
+
+[data-testid="stChatInput"] button {
+    background: var(--blue) !important;
+    border-radius: 5px !important;
+}
+
+/* DIVIDER */
+hr {
+    border: 0 !important;
+    height: 1px !important;
+    background: var(--border) !important;
+    margin: 1.25rem 0 !important;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+    background: #33465a;
+    border-radius: 5px;
+}
+
+@keyframes pulse-glow {
+    from, to { box-shadow: none; }
+}
+
+@media (max-width: 768px) {
+    .block-container {
+        padding: 1rem 0.75rem 3rem;
+    }
+    h1 { font-size: 1.7rem !important; }
 }
 </style>
 """, unsafe_allow_html=True)
-```
-    
-    /* ==========================================
-       METRİK KARTLARI - GLASS
-       ========================================== */
-    [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.06) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 16px !important;
-        padding: 18px !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
-    }
-    
-    [data-testid="stMetric"]:hover {
-        border-color: rgba(96, 165, 250, 0.3) !important;
-        transform: translateY(-4px) !important;
-        box-shadow: 0 8px 32px rgba(96, 165, 250, 0.15) !important;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        color: rgba(255, 255, 255, 0.5) !important;
-        font-size: 0.7rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-    }
-    
-    [data-testid="stMetricValue"] {
-        color: #ffffff !important;
-        font-size: 1.6rem !important;
-        font-weight: 700 !important;
-        font-family: 'JetBrains Mono', monospace !important;
-    }
-    
-    [data-testid="stMetricDelta"] {
-        color: #ffffff !important;
-    }
-    
-    /* ==========================================
-       TABS - MODERN
-       ========================================== */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
-        padding: 4px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        color: rgba(255, 255, 255, 0.5) !important;
-        border-radius: 12px !important;
-        padding: 8px 20px !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        color: #ffffff !important;
-        background: rgba(96, 165, 250, 0.2) !important;
-        border: 1px solid rgba(96, 165, 250, 0.2) !important;
-    }
-    
-    /* ==========================================
-       CHAT - SADECE BURASI SİYAH
-       ========================================== */
-    [data-testid="stChatMessage"] {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-        padding: 16px !important;
-        margin: 8px 0 !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
-    }
-    
-    [data-testid="stChatMessage"] * {
-        color: #0f172a !important;
-    }
-    
-    [data-testid="stChatMessage"] p,
-    [data-testid="stChatMessage"] span,
-    [data-testid="stChatMessage"] div,
-    [data-testid="stChatMessage"] strong,
-    [data-testid="stChatMessage"] em,
-    [data-testid="stChatMessage"] h1,
-    [data-testid="stChatMessage"] h2,
-    [data-testid="stChatMessage"] h3,
-    [data-testid="stChatMessage"] h4,
-    [data-testid="stChatMessage"] h5,
-    [data-testid="stChatMessage"] h6,
-    [data-testid="stChatMessage"] li,
-    [data-testid="stChatMessage"] ul,
-    [data-testid="stChatMessage"] ol,
-    [data-testid="stChatMessage"] blockquote,
-    [data-testid="stChatMessage"] pre,
-    [data-testid="stChatMessage"] code {
-        color: #0f172a !important;
-    }
-    
-    [data-testid="stChatMessage"][data-testid="chat-message-user"] {
-        background: #e8f0fe !important;
-    }
-    
-    [data-testid="stChatMessage"][data-testid="chat-message-assistant"] {
-        background: #ffffff !important;
-    }
-    
-    /* CHAT INPUT */
-    [data-testid="stChatInput"] {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border: 2px solid #cbd5e1 !important;
-        border-radius: 14px !important;
-    }
-    
-    [data-testid="stChatInput"] input {
-        color: #0f172a !important;
-    }
-    
-    [data-testid="stChatInput"] input::placeholder {
-        color: #64748b !important;
-    }
-    
-    [data-testid="stChatInput"] button {
-        background: linear-gradient(135deg, #3b82f6, #7c3aed) !important;
-        color: #ffffff !important;
-        border-radius: 10px !important;
-    }
-    
-    [data-testid="stChatInput"] button * {
-        color: #ffffff !important;
-    }
-    
-    /* ==========================================
-       EXPANDER - GLASS
-       ========================================== */
-    .streamlit-expanderHeader {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 14px !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        backdrop-filter: blur(10px) !important;
-    }
-    
-    .streamlit-expanderContent {
-        background: rgba(255, 255, 255, 0.03) !important;
-        border-radius: 0 0 14px 14px !important;
-        padding: 20px !important;
-    }
-    
-    /* ==========================================
-       SELECTBOX
-       ========================================== */
-    .stSelectbox label {
-        color: rgba(255, 255, 255, 0.7) !important;
-    }
-    
-    .stSelectbox select {
-        background: rgba(255, 255, 255, 0.08) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: #ffffff !important;
-        border-radius: 12px !important;
-        padding: 10px !important;
-    }
-    
-    /* ==========================================
-       SCROLLBAR
-       ========================================== */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #3b82f6, #7c3aed);
-        border-radius: 10px;
-    }
-    
-    /* ==========================================
-       INFO/WARNING/ERROR BOXES
-       ========================================== */
-    .stAlert {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 14px !important;
-        backdrop-filter: blur(10px) !important;
-    }
-    
-    .stAlert p {
-        color: #ffffff !important;
-    }
-    
-    /* ==========================================
-       SEPARATOR
-       ========================================== */
-    hr {
-        border: none !important;
-        height: 1px !important;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent) !important;
-        margin: 20px 0 !important;
-    }
-    
-    /* ==========================================
-       MARKDOWN
-       ========================================== */
-    .stMarkdown p {
-        color: rgba(255, 255, 255, 0.8) !important;
-        line-height: 1.6 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
 
+# ============================================================
 # 📍 YARDIMCI FONKSİYONLAR
+# ============================================================
+
 def sanitize_symbol(symbol: str) -> str:
     symbol = symbol.strip().upper()
-    if symbol in ["XU100", "BIST100", "BIST 100", "^XU100"]:
+    if symbol in ["XU100", "BIST100", "BIST 100"]:
         return "^XU100"
-    if symbol in ["XBANA", "BIST ANA"]:
-        return "XBANA.IS"
     if not symbol.endswith(".IS") and not symbol.startswith("^"):
         if symbol.isalpha() and 3 <= len(symbol) <= 6:
             return f"{symbol}.IS"
@@ -365,11 +353,6 @@ def fetch_market_data(symbol: str) -> Optional[Dict[str, Any]]:
                 df['MACD'] = exp1 - exp2
                 df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
                 
-                df['BB_Middle'] = df['Close'].rolling(20).mean()
-                bb_std = df['Close'].rolling(20).std()
-                df['BB_Upper'] = df['BB_Middle'] + (bb_std * 2)
-                df['BB_Lower'] = df['BB_Middle'] - (bb_std * 2)
-                
                 last_price = float(df['Close'].iloc[-1])
                 change = float(info.get('regularMarketChangePercent', 0))
                 
@@ -379,39 +362,9 @@ def fetch_market_data(symbol: str) -> Optional[Dict[str, Any]]:
                     "change": change,
                     "currency": "TRY",
                     "df": df,
-                    "data_source": "Yahoo Finance",
-                    "info": info
+                    "data_source": "Yahoo Finance"
                 }
-        
-        stooq_code = clean_sym.replace(".IS", ".TR").replace("^", "").lower()
-        stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
-        df_stooq = pd.read_csv(stooq_url)
-        
-        if not df_stooq.empty and 'Close' in df_stooq.columns:
-            df_stooq['Date'] = pd.to_datetime(df_stooq['Date'])
-            df_stooq.set_index('Date', inplace=True)
-            df_stooq.sort_index(inplace=True)
-            
-            df = df_stooq[['Open', 'High', 'Low', 'Close']].copy()
-            df['SMA20'] = df['Close'].rolling(20).mean()
-            df['SMA50'] = df['Close'].rolling(50).mean()
-            df['SMA200'] = df['Close'].rolling(200).mean()
-            df['RSI'] = calculate_rsi(df['Close'])
-            
-            last_price = float(df['Close'].iloc[-1])
-            prev_price = float(df['Close'].iloc[-2]) if len(df) > 1 else last_price
-            change = ((last_price - prev_price) / prev_price) * 100 if prev_price else 0
-            
-            return {
-                "symbol": clean_sym,
-                "price": last_price,
-                "change": change,
-                "currency": "TRY",
-                "df": df,
-                "data_source": "Stooq",
-                "info": None
-            }
-            
+                
     except Exception as e:
         logger.error(f"Veri çekme hatası: {e}")
     
@@ -425,7 +378,7 @@ def fetch_news(symbol: str) -> str:
     
     try:
         url = f"https://news.google.com/search?q={clean_name}&hl=tr&gl=TR"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
         
         if response.status_code == 200:
@@ -438,22 +391,20 @@ def fetch_news(symbol: str) -> str:
         
         if news_list:
             return "\n".join(news_list[:5])
-        else:
-            return "📡 Güncel haber bulunamadı."
+        return "📡 Güncel haber bulunamadı."
             
     except Exception as e:
-        return f"📡 Haberler alınamıyor"
+        return "📡 Haberler alınamıyor"
 
 # 📍 RAKİP HİSSELER
-def get_competitors(symbol: str, market_data: Dict) -> list:
+def get_competitors(symbol: str) -> list:
     all_stocks = [
         "THYAO.IS", "GARAN.IS", "AKBNK.IS", "ASELS.IS", "SISE.IS",
         "KCHOL.IS", "SAHOL.IS", "TUPRS.IS", "EREGL.IS", "PGSUS.IS"
     ]
     import random
     random.seed(hash(symbol))
-    competitors = random.sample([s for s in all_stocks if s != symbol], 3)
-    return competitors
+    return random.sample([s for s in all_stocks if s != symbol], 3)
 
 # 📍 AI ANALİZ
 def analyze_with_ai(prompt: str, market_data: Dict, competitors_data: list, history: list, client) -> str:
@@ -485,49 +436,48 @@ def analyze_with_ai(prompt: str, market_data: Dict, competitors_data: list, hist
     news = fetch_news(market_data['symbol'])
     
     data_str = f"""
-📊 **HİSSE ANALİZ VERİLERİ**
+📊 HİSSE ANALİZ VERİLERİ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔹 Sembol: {market_data['symbol']}
-🔹 Fiyat: {last_price:.2f} TRY
-🔹 Günlük Değişim: %{change:+.2f}
+Sembol: {market_data['symbol']}
+Fiyat: {last_price:.2f} TRY
+Günlük Değişim: %{change:+.2f}
 
-📈 **TEKNİK GÖSTERGELER**
+📈 TEKNİK GÖSTERGELER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔸 RSI(14): {last_rsi:.1f} ({get_rsi_comment(last_rsi)})
-🔸 SMA20: {sma20:.2f} TRY
-🔸 SMA50: {sma50:.2f} TRY
-🔸 SMA200: {sma200:.2f} TRY
-🔸 Trend: {trend}
+RSI(14): {last_rsi:.1f} ({get_rsi_comment(last_rsi)})
+SMA20: {sma20:.2f} TRY
+SMA50: {sma50:.2f} TRY
+SMA200: {sma200:.2f} TRY
+Trend: {trend}
 
-🛡️ **DESTEK/DİRENÇ**
+🛡️ DESTEK/DİRENÇ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🟢 Destek: {support:.2f} TRY
-🔴 Direnç: {resistance:.2f} TRY
+Destek: {support:.2f} TRY
+Direnç: {resistance:.2f} TRY
 
-📊 **GETİRİ ANALİZİ**
+📊 GETİRİ ANALİZİ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📆 Aylık Getiri: %{monthly_return:+.2f}
-📅 Yıllık Getiri: %{yearly_return:+.2f}
-⚡ Volatilite: %{volatility*100:.2f}
+Aylık Getiri: %{monthly_return:+.2f}
+Yıllık Getiri: %{yearly_return:+.2f}
+Volatilite: %{volatility*100:.2f}
 
 {comp_text}
 
-📰 **GÜNCEL HABERLER**
+📰 GÜNCEL HABERLER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {news}
 """
 
     system_prompt = f"""
-Sen, **BISTeknik PRO** yapay zeka analistisin.
+Sen, BISTeknik PRO yapay zeka analistisin.
 
-🎯 **GÖREV:** Kullanıcının hissesi hakkında DETAYLI analiz yap.
+📋 ANALİZ FORMATI (6 BAŞLIK):
 
-📋 **FORMAT (6 PARAGRAF):**
-1. ÖZET GÖRÜŞ - Genel değerlendirme, kısa/orta/uzun vade beklenti
-2. TEKNİK ANALİZ - RSI, SMA, MACD, Bollinger yorumu, destek/direnç
+1. ÖZET GÖRÜŞ - Hisse hakkında genel değerlendirme, kısa/orta/uzun vade beklenti
+2. TEKNİK ANALİZ - RSI, SMA, MACD yorumu, destek/direnç seviyeleri
 3. GETİRİ & RİSK - Aylık/Yıllık getiri, volatilite, risk/getiri potansiyeli
 4. REKABET - Rakiplerle karşılaştırma, sektörel performans
-5. HABER & GÜNDEM - Güncel haberlerin etkisi, makro faktörler
+5. HABER & GÜNDEM - Güncel haberlerin etkisi, makroekonomik faktörler
 6. SONUÇ & STRATEJİ - Kısa/Orta/Uzun vade strateji, izlenecek seviyeler
 
 ⚠️ KURALLAR:
@@ -536,7 +486,7 @@ Sen, **BISTeknik PRO** yapay zeka analistisin.
 - Teknik terimleri doğru kullan
 - Türkçe yaz
 
-📊 **VERİLER:**
+📊 VERİLER:
 {data_str}
 """
 
@@ -560,7 +510,6 @@ Sen, **BISTeknik PRO** yapay zeka analistisin.
 # 📱 ANA UYGULAMA
 # ============================================================
 
-# Groq API Key
 groq_api_key = os.environ.get("GROQ_API_KEY")
 if not groq_api_key:
     groq_api_key = st.text_input("🔑 Groq API Key:", type="password")
@@ -575,16 +524,14 @@ except Exception as e:
     st.error(f"❌ Client hatası: {e}")
     st.stop()
 
-# ============================================================
-# 📍 LOGO ve BAŞLIK
-# ============================================================
+# LOGO
 st.markdown("""
-<div style="display: flex; justify-content: center; padding: 20px 0 10px 0;">
-    <div class="logo-container">
-        <div class="logo-icon">📈</div>
+<div style="display:flex; justify-content:center; padding:20px 0 10px 0;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:42px; height:42px; border-radius:8px; font-size:24px; background:#4da3ff; display:flex; align-items:center; justify-content:center;">📈</div>
         <div>
-            <div class="logo-text">BISTeknik PRO</div>
-            <div class="logo-sub">AI QUANT TERMINAL</div>
+            <span style="color:#e7edf4; font-size:22px; font-weight:700;">BISTeknik PRO</span>
+            <span style="color:#8b9aac; font-size:10px; letter-spacing:2px; margin-left:6px;">AI QUANT TERMINAL</span>
         </div>
     </div>
 </div>
@@ -592,12 +539,10 @@ st.markdown("""
 
 st.markdown("---")
 
-# ============================================================
-# 📍 ANA SEARCH
-# ============================================================
-search_col1, search_col2 = st.columns([3, 1])
+# SEARCH
+col1, col2 = st.columns([3, 1])
 
-with search_col1:
+with col1:
     user_input = st.text_input(
         "",
         placeholder="🔍 Hisse kodu girin... (Örnek: SASA, THYAO, GARAN)",
@@ -605,7 +550,7 @@ with search_col1:
         key="search_input"
     )
 
-with search_col2:
+with col2:
     analyze_btn = st.button("🚀 ANALİZ ET", use_container_width=True)
 
 # Session state
@@ -618,9 +563,7 @@ if "market_data" not in st.session_state:
 if "competitors" not in st.session_state:
     st.session_state.competitors = []
 
-# ============================================================
-# 📍 ANALİZ
-# ============================================================
+# ANALİZ
 if analyze_btn and user_input:
     with st.spinner("🚀 Veriler çekiliyor..."):
         symbol = sanitize_symbol(user_input)
@@ -629,7 +572,7 @@ if analyze_btn and user_input:
         if market_data:
             st.session_state.market_data = market_data
             
-            comp_symbols = get_competitors(symbol, market_data)
+            comp_symbols = get_competitors(symbol)
             competitors = []
             for comp_sym in comp_symbols:
                 comp_data = fetch_market_data(comp_sym)
@@ -651,14 +594,12 @@ if analyze_btn and user_input:
         else:
             st.error(f"❌ {symbol} için veri bulunamadı")
 
-# ============================================================
-# 📊 GÖSTERİM
-# ============================================================
+# GÖSTERİM
 if st.session_state.market_data:
     data = st.session_state.market_data
     df = data['df']
     
-    # 📍 ÜST KARTLAR
+    # METRİKLER
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -687,7 +628,7 @@ if st.session_state.market_data:
     
     st.markdown("---")
     
-    # 📍 GRAFİKLER
+    # GRAFİKLER
     tab1, tab2, tab3 = st.tabs(["📈 Fiyat & SMA", "📊 Teknik Göstergeler", "📉 Karşılaştırma"])
     
     with tab1:
@@ -731,7 +672,7 @@ if st.session_state.market_data:
         fig.update_layout(
             title=f"<b>{data['symbol']}</b> — Fiyat ve Hareketli Ortalamalar",
             template="plotly_dark",
-            height=500,
+            height=480,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(255,255,255,0.02)",
             xaxis_rangeslider_visible=False,
@@ -742,7 +683,7 @@ if st.session_state.market_data:
         st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.1,
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
                             row_heights=[0.6, 0.4])
         
         fig.add_trace(go.Scatter(
@@ -775,7 +716,7 @@ if st.session_state.market_data:
         fig.update_layout(
             title=f"<b>{data['symbol']}</b> — MACD ve RSI",
             template="plotly_dark",
-            height=500,
+            height=480,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(255,255,255,0.02)",
             font=dict(color="rgba(255,255,255,0.7)")
@@ -819,23 +760,23 @@ if st.session_state.market_data:
             
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Rakip verileri yüklenemedi.")
+            st.info("📊 Rakip verileri yüklenemedi.")
     
-    # 📍 HABERLER
+    # HABERLER
     with st.expander("📰 GÜNCEL HABERLER", expanded=True):
         news = fetch_news(data['symbol'])
         st.markdown(news)
     
-    # 📍 AI ANALİZ
+    # AI ANALİZ
     st.markdown("---")
-    st.markdown('<h3 style="text-align: center;">🤖 AI QUANT ANALİZ</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="text-align:center; font-weight:700;">🤖 AI QUANT ANALİZ</h3>', unsafe_allow_html=True)
     st.markdown("---")
     
     for msg in st.session_state.messages:
         with st.chat_message("assistant"):
             st.markdown(msg["content"])
     
-    # Kullanıcı sorusu
+    # KULLANICI SORUSU
     user_question = st.chat_input("📝 Hisse hakkında detaylı soru sorun...")
     
     if user_question:
@@ -854,24 +795,20 @@ if st.session_state.market_data:
             st.rerun()
 
 else:
-    # ============================================================
-    # 📍 BAŞLANGIÇ EKRANI
-    # ============================================================
+    # BAŞLANGIÇ EKRANI
     st.markdown("""
-    <div style="text-align: center; padding: 80px 20px;">
-        <div style="font-size: 80px; margin-bottom: 24px; animation: pulse-glow 3s ease-in-out infinite;">
-            📈
-        </div>
-        <h2 style="font-size: 2.5rem; margin-bottom: 12px;">Profesyonel AI Quant Terminal</h2>
-        <p style="color: rgba(255,255,255,0.4); font-size: 1.1rem; max-width: 500px; margin: 0 auto;">
+    <div style="text-align:center; padding:60px 20px;">
+        <div style="font-size:72px; margin-bottom:20px;">📈</div>
+        <h2 style="font-size:2rem; margin-bottom:10px;">Profesyonel AI Quant Terminal</h2>
+        <p style="color:#8b9aac; font-size:1.1rem; max-width:500px; margin:0 auto;">
             Yukarıdaki arama kutusuna bir hisse kodu yazın ve anında detaylı analiz alın.
         </p>
-        <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">📊 SASA</span>
-            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">✈️ THYAO</span>
-            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">🏦 GARAN</span>
-            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">🔧 ASELS</span>
-            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">🛢️ TUPRS</span>
+        <div style="margin-top:40px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">📊 SASA</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">✈️ THYAO</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">🏦 GARAN</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">🔧 ASELS</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">🛢️ TUPRS</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
