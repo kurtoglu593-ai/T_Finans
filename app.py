@@ -35,7 +35,7 @@ class Config:
     RSI_PERIOD = 14
     SMA_FAST = 20
     SMA_SLOW = 50
-    MAX_HISTORY_DAYS = 365  # 1 yıllık veri
+    MAX_HISTORY_DAYS = 365
 
 # 📍 SAYFA AYARLARI
 st.set_page_config(
@@ -45,16 +45,26 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 📍 TEMA
+# 📍 TEMA - SADECE CHAT SİYAH
 st.markdown("""
 <style>
-    /* ANA ARKA PLAN */
+    /* ANA ARKA PLAN - KOYU */
     .stApp {
-        background: linear-gradient(135deg, #0a0e1a 0%, #1a1f35 50%, #0a0e1a 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
     }
     
-    /* TÜM YAZILAR BEYAZ */
+    /* TÜM YAZILAR BEYAZ (CHAT DIŞINDA) */
     * {
+        color: #ffffff !important;
+    }
+    
+    /* BAŞLIKLAR BEYAZ */
+    h1, h2, h3, h4, h5, h6 {
+        color: #ffffff !important;
+    }
+    
+    /* PARAGRAFLAR */
+    p {
         color: #ffffff !important;
     }
     
@@ -68,6 +78,10 @@ st.markdown("""
         padding: 12px 20px !important;
     }
     
+    .stTextInput input::placeholder {
+        color: rgba(255,255,255,0.4) !important;
+    }
+    
     /* BUTONLAR */
     .stButton button {
         background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
@@ -79,6 +93,10 @@ st.markdown("""
         font-size: 16px !important;
         transition: all 0.3s ease !important;
         width: 100% !important;
+    }
+    
+    .stButton button * {
+        color: #ffffff !important;
     }
     
     .stButton button:hover {
@@ -109,6 +127,10 @@ st.markdown("""
         font-weight: 700 !important;
     }
     
+    [data-testid="stMetricDelta"] {
+        color: #ffffff !important;
+    }
+    
     /* EXPANDER */
     .streamlit-expanderHeader {
         background: rgba(255,255,255,0.03) !important;
@@ -118,65 +140,152 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
+    .streamlit-expanderHeader p {
+        color: #ffffff !important;
+    }
+    
     .streamlit-expanderContent {
         background: rgba(255,255,255,0.02) !important;
         border-radius: 0 0 12px 12px !important;
         padding: 20px !important;
     }
     
-    /* CHAT */
-    [data-testid="stChatMessage"] {
+    .streamlit-expanderContent * {
+        color: #ffffff !important;
+    }
+    
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        color: rgba(255,255,255,0.6) !important;
+    }
+    
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: #ffffff !important;
+    }
+    
+    .stTabs [data-baseweb="tab"] p {
+        color: inherit !important;
+    }
+    
+    /* SELECTBOX */
+    .stSelectbox label {
+        color: #ffffff !important;
+    }
+    
+    .stSelectbox select {
+        background: rgba(255,255,255,0.08) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+    }
+    
+    .stSelectbox option {
+        background: #1e293b !important;
+        color: #ffffff !important;
+    }
+    
+    /* DATAFRAME */
+    .dataframe {
+        color: #ffffff !important;
+        background: rgba(255,255,255,0.05) !important;
+    }
+    
+    .dataframe th {
+        color: #ffffff !important;
+        background: rgba(59, 130, 246, 0.2) !important;
+    }
+    
+    .dataframe td {
+        color: #ffffff !important;
+    }
+    
+    /* ALERT */
+    .stAlert {
         background: rgba(255,255,255,0.05) !important;
         border: 1px solid rgba(255,255,255,0.08) !important;
+        color: #ffffff !important;
+    }
+    
+    .stAlert p {
+        color: #ffffff !important;
+    }
+    
+    /* ============================================ */
+    /* 📍 SADECE CHAT MESAJLARI SİYAH */
+    /* ============================================ */
+    [data-testid="stChatMessage"] * {
+        color: #000000 !important;
+    }
+    
+    [data-testid="stChatMessage"] p,
+    [data-testid="stChatMessage"] span,
+    [data-testid="stChatMessage"] div,
+    [data-testid="stChatMessage"] strong,
+    [data-testid="stChatMessage"] em,
+    [data-testid="stChatMessage"] h1,
+    [data-testid="stChatMessage"] h2,
+    [data-testid="stChatMessage"] h3,
+    [data-testid="stChatMessage"] h4,
+    [data-testid="stChatMessage"] h5,
+    [data-testid="stChatMessage"] h6,
+    [data-testid="stChatMessage"] li,
+    [data-testid="stChatMessage"] ul,
+    [data-testid="stChatMessage"] ol,
+    [data-testid="stChatMessage"] blockquote,
+    [data-testid="stChatMessage"] pre,
+    [data-testid="stChatMessage"] code {
+        color: #000000 !important;
+    }
+    
+    /* CHAT INPUT YAZISI SİYAH */
+    [data-testid="stChatInput"] input {
+        color: #000000 !important;
+    }
+    
+    [data-testid="stChatInput"] input::placeholder {
+        color: #64748b !important;
+    }
+    
+    /* CHAT KUTUSU ARKA PLANI - BEYAZ */
+    [data-testid="stChatMessage"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 16px !important;
         padding: 16px !important;
         margin: 8px 0 !important;
     }
     
+    /* KULLANICI MESAJLARI */
+    [data-testid="stChatMessage"][data-testid="chat-message-user"] {
+        background: #e8f0fe !important;
+    }
+    
+    /* ASSISTANT MESAJLARI */
+    [data-testid="stChatMessage"][data-testid="chat-message-assistant"] {
+        background: #ffffff !important;
+    }
+    
+    /* CHAT INPUT KUTUSU */
     [data-testid="stChatInput"] {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
+        background: rgba(255,255,255,0.95) !important;
+        border: 2px solid #cbd5e1 !important;
         border-radius: 12px !important;
     }
     
-    [data-testid="stChatInput"] input {
-        color: #ffffff !important;
-        font-size: 16px !important;
-    }
-    
-    /* BAŞLIKLAR */
-    h1, h2, h3, h4 {
+    [data-testid="stChatInput"] button {
         background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
-        font-weight: 900 !important;
+        color: #ffffff !important;
     }
     
-    /* GRAFİK */
-    .js-plotly-plot .plotly .main-svg {
-        background: transparent !important;
+    [data-testid="stChatInput"] button * {
+        color: #ffffff !important;
     }
     
-    /* DİV KARTLARI */
-    .pro-card {
-        background: rgba(255,255,255,0.03) !important;
-        border: 1px solid rgba(255,255,255,0.06) !important;
-        border-radius: 16px !important;
-        padding: 20px !important;
-        backdrop-filter: blur(10px) !important;
-        margin: 10px 0 !important;
-    }
-    
-    .glass-card {
-        background: rgba(255,255,255,0.05) !important;
-        backdrop-filter: blur(20px) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        border-radius: 16px !important;
-        padding: 24px !important;
-        margin: 12px 0 !important;
-    }
-    
-    /* Scrollbar */
+    /* SCROLLBAR */
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -188,6 +297,46 @@ st.markdown("""
     ::-webkit-scrollbar-thumb {
         background: linear-gradient(135deg, #3b82f6, #8b5cf6);
         border-radius: 10px;
+    }
+    
+    /* INFO BOX */
+    .stInfo {
+        background: rgba(59, 130, 246, 0.1) !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    }
+    
+    .stInfo p {
+        color: #ffffff !important;
+    }
+    
+    /* WARNING BOX */
+    .stWarning {
+        background: rgba(245, 158, 11, 0.1) !important;
+        border: 1px solid rgba(245, 158, 11, 0.2) !important;
+    }
+    
+    .stWarning p {
+        color: #ffffff !important;
+    }
+    
+    /* ERROR BOX */
+    .stError {
+        background: rgba(239, 68, 68, 0.1) !important;
+        border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    }
+    
+    .stError p {
+        color: #ffffff !important;
+    }
+    
+    /* SUCCESS BOX */
+    .stSuccess {
+        background: rgba(34, 197, 94, 0.1) !important;
+        border: 1px solid rgba(34, 197, 94, 0.2) !important;
+    }
+    
+    .stSuccess p {
+        color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -358,7 +507,6 @@ def get_competitors(symbol: str, market_data: Dict) -> list:
         "KCHOL.IS", "SAHOL.IS", "TUPRS.IS", "EREGL.IS", "PGSUS.IS"
     ]
     
-    # Rastgele 3 rakip seç
     import random
     random.seed(hash(symbol))
     competitors = random.sample([s for s in all_stocks if s != symbol], 3)
@@ -679,7 +827,8 @@ if st.session_state.market_data:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(255,255,255,0.02)",
             xaxis_rangeslider_visible=False,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            font=dict(color="rgba(255,255,255,0.7)")
         )
         
         st.plotly_chart(fig, use_container_width=True)
@@ -722,7 +871,8 @@ if st.session_state.market_data:
             template="plotly_dark",
             height=500,
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(255,255,255,0.02)"
+            plot_bgcolor="rgba(255,255,255,0.02)",
+            font=dict(color="rgba(255,255,255,0.7)")
         )
         
         st.plotly_chart(fig, use_container_width=True)
@@ -759,7 +909,8 @@ if st.session_state.market_data:
                 height=400,
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(255,255,255,0.02)",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                font=dict(color="rgba(255,255,255,0.7)")
             )
             
             st.plotly_chart(fig, use_container_width=True)
@@ -802,16 +953,16 @@ else:
     st.markdown("""
     <div style="text-align: center; padding: 60px 20px;">
         <div style="font-size: 72px; margin-bottom: 20px;">🚀</div>
-        <h2 style="font-size: 2rem; margin-bottom: 10px;">Profesyonel AI Quant Terminal</h2>
+        <h2 style="font-size: 2rem; margin-bottom: 10px; color: #ffffff;">Profesyonel AI Quant Terminal</h2>
         <p style="color: rgba(255,255,255,0.5); font-size: 1.1rem;">
             Yukarıdaki arama kutusuna bir hisse kodu yazın ve analiz edin.
         </p>
         <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">📊 SASA</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">✈️ THYAO</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">🏦 GARAN</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">🔧 ASELS</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);">🛢️ TUPRS</span>
+            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">📊 SASA</span>
+            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">✈️ THYAO</span>
+            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">🏦 GARAN</span>
+            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">🔧 ASELS</span>
+            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">🛢️ TUPRS</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
