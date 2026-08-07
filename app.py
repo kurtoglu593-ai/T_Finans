@@ -38,10 +38,11 @@ st.set_page_config(
 )
 
 # ============================================================
-# 🎨 CSS — TEMİZ, OKUNUR, PROFESYONEL
+# 🎨 CSS — SİZİN VERDİĞİNİZ TAM TASARIM
 # ============================================================
 st.markdown("""
 <style>
+/* BISTeknik PRO - Profesyonel terminal görünümü */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
@@ -87,7 +88,6 @@ h3 { font-size: 1.2rem !important; }
     color: var(--muted) !important;
 }
 
-/* LOGO */
 .logo-container {
     background: transparent !important;
     border: 0 !important;
@@ -118,7 +118,6 @@ h3 { font-size: 1.2rem !important; }
     letter-spacing: 2px !important;
 }
 
-/* SEARCH */
 .stTextInput input {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
@@ -138,7 +137,6 @@ h3 { font-size: 1.2rem !important; }
     color: #667689 !important;
 }
 
-/* BUTTON */
 .stButton button {
     min-height: 44px !important;
     background: var(--blue) !important;
@@ -159,8 +157,7 @@ h3 { font-size: 1.2rem !important; }
     color: #07111d !important;
 }
 
-/* METRICS */
-[data-testid="stMetric"] {
+[data-testid='stMetric'] {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
@@ -168,54 +165,51 @@ h3 { font-size: 1.2rem !important; }
     box-shadow: none !important;
 }
 
-[data-testid="stMetric"]:hover {
+[data-testid='stMetric']:hover {
     transform: none !important;
     border-color: #38516b !important;
 }
 
-[data-testid="stMetricLabel"] {
+[data-testid='stMetricLabel'] {
     color: var(--muted) !important;
     font-size: 0.73rem !important;
     letter-spacing: 0.04em !important;
 }
 
-[data-testid="stMetricValue"] {
+[data-testid='stMetricValue'] {
     color: var(--text) !important;
     font-family: 'JetBrains Mono', monospace !important;
     font-size: 1.45rem !important;
 }
 
-/* TABS */
-.stTabs [data-baseweb="tab-list"] {
+.stTabs [data-baseweb='tab-list'] {
     gap: 3px;
     background: var(--panel) !important;
     border-bottom: 1px solid var(--border);
     padding: 4px 5px 0;
 }
 
-.stTabs [data-baseweb="tab"] {
+.stTabs [data-baseweb='tab'] {
     color: var(--muted) !important;
     border-radius: 5px 5px 0 0 !important;
     padding: 10px 16px !important;
 }
 
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
+.stTabs [data-baseweb='tab'][aria-selected='true'] {
     color: var(--text) !important;
     background: var(--panel2) !important;
     border-bottom: 2px solid var(--blue) !important;
 }
 
-/* CHART */
-[data-testid="stPlotlyChart"] {
+[data-testid='stPlotlyChart'] {
     background: var(--panel) !important;
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 5px;
 }
 
-/* EXPANDER */
 .streamlit-expanderHeader,
-[data-testid="stExpander"] {
+[data-testid='stExpander'] {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
@@ -226,41 +220,39 @@ h3 { font-size: 1.2rem !important; }
     background: var(--panel) !important;
 }
 
-/* ALERT */
 .stAlert {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
     border-radius: 7px !important;
 }
 
-/* CHAT — SADECE BURASI SİYAH */
-[data-testid="stChatMessage"] {
+/* CHAT - Panel renginde ama okunur */
+[data-testid='stChatMessage'] {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
     box-shadow: none !important;
 }
 
-[data-testid="stChatMessage"] * {
+[data-testid='stChatMessage'] * {
     color: var(--text) !important;
 }
 
-[data-testid="stChatInput"] {
+[data-testid='stChatInput'] {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
     border-radius: 7px !important;
 }
 
-[data-testid="stChatInput"] input {
+[data-testid='stChatInput'] input {
     color: var(--text) !important;
 }
 
-[data-testid="stChatInput"] button {
+[data-testid='stChatInput'] button {
     background: var(--blue) !important;
     border-radius: 5px !important;
 }
 
-/* DIVIDER */
 hr {
     border: 0 !important;
     height: 1px !important;
@@ -268,14 +260,15 @@ hr {
     margin: 1.25rem 0 !important;
 }
 
-/* SCROLLBAR */
 ::-webkit-scrollbar {
     width: 7px;
     height: 7px;
 }
+
 ::-webkit-scrollbar-track {
     background: var(--bg);
 }
+
 ::-webkit-scrollbar-thumb {
     background: #33465a;
     border-radius: 5px;
@@ -527,11 +520,11 @@ except Exception as e:
 # LOGO
 st.markdown("""
 <div style="display:flex; justify-content:center; padding:20px 0 10px 0;">
-    <div style="display:flex; align-items:center; gap:12px;">
-        <div style="width:42px; height:42px; border-radius:8px; font-size:24px; background:#4da3ff; display:flex; align-items:center; justify-content:center;">📈</div>
+    <div class="logo-container">
+        <div class="logo-icon">📈</div>
         <div>
-            <span style="color:#e7edf4; font-size:22px; font-weight:700;">BISTeknik PRO</span>
-            <span style="color:#8b9aac; font-size:10px; letter-spacing:2px; margin-left:6px;">AI QUANT TERMINAL</span>
+            <span class="logo-text">BISTeknik PRO</span>
+            <span class="logo-sub">AI QUANT TERMINAL</span>
         </div>
     </div>
 </div>
