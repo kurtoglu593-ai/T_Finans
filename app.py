@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 import yfinance as yf
+import base64
 
 # .env dosyasını yükle
 load_dotenv()
@@ -40,185 +41,251 @@ class Config:
 # 📍 SAYFA AYARLARI
 st.set_page_config(
     page_title="BISTeknik PRO",
-    page_icon="🚀",
+    page_icon="📈",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 📍 TEMA - SADECE CHAT SİYAH
+# ============================================================
+# 🎨 SIFIRDAN TASARIM - PROFESYONEL & İLGİ ÇEKİCİ
+# ============================================================
 st.markdown("""
 <style>
-    /* ANA ARKA PLAN - KOYU */
+    /* ==========================================
+       ANA ARKA PLAN - CANLI GRADYAN
+       ========================================== */
     .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        background: linear-gradient(135deg, #0c0e1a 0%, #1a1f3a 30%, #162447 60%, #0f1b2d 100%);
+        background-attachment: fixed;
     }
     
-    /* TÜM YAZILAR BEYAZ (CHAT DIŞINDA) */
+    /* ==========================================
+       TÜM YAZILAR BEYAZ (CHAT DIŞINDA)
+       ========================================== */
     * {
-        color: #ffffff !important;
+        color: #f0f4ff !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     }
     
-    /* BAŞLIKLAR BEYAZ */
+    /* ==========================================
+       BAŞLIKLAR - GRADYAN
+       ========================================== */
     h1, h2, h3, h4, h5, h6 {
-        color: #ffffff !important;
+        background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.5px !important;
     }
     
-    /* PARAGRAFLAR */
-    p {
-        color: #ffffff !important;
+    h1 { font-size: 3.2rem !important; }
+    h2 { font-size: 2.2rem !important; }
+    
+    /* ==========================================
+       GLASSMORPHISM KARTLAR
+       ========================================== */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.06) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px !important;
+        padding: 24px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+        transition: all 0.4s ease !important;
     }
     
-    /* INPUT ALANLARI */
+    .glass-card:hover {
+        border-color: rgba(96, 165, 250, 0.3) !important;
+        box-shadow: 0 12px 48px rgba(96, 165, 250, 0.15) !important;
+        transform: translateY(-4px) !important;
+    }
+    
+    /* ==========================================
+       LOGO - ANİMASYONLU
+       ========================================== */
+    @keyframes pulse-glow {
+        0% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
+        50% { box-shadow: 0 0 40px rgba(96, 165, 250, 0.4), 0 0 60px rgba(167, 139, 250, 0.2); }
+        100% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
+    }
+    
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 12px 24px;
+        border-radius: 60px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+        animation: pulse-glow 3s ease-in-out infinite;
+        display: inline-flex;
+    }
+    
+    .logo-icon {
+        font-size: 42px;
+        background: linear-gradient(135deg, #60a5fa, #a78bfa);
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(96, 165, 250, 0.3);
+    }
+    
+    .logo-text {
+        font-size: 28px;
+        font-weight: 900;
+        background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -1px;
+    }
+    
+    .logo-sub {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4) !important;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    
+    /* ==========================================
+       SEARCH INPUT - GLASS
+       ========================================== */
     .stTextInput input {
-        background: rgba(255,255,255,0.08) !important;
-        border: 1px solid rgba(255,255,255,0.15) !important;
-        border-radius: 12px !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 2px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 16px !important;
         color: #ffffff !important;
         font-size: 18px !important;
-        padding: 12px 20px !important;
+        padding: 14px 24px !important;
+        backdrop-filter: blur(10px) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #60a5fa !important;
+        box-shadow: 0 0 30px rgba(96, 165, 250, 0.15) !important;
+        background: rgba(255, 255, 255, 0.12) !important;
     }
     
     .stTextInput input::placeholder {
-        color: rgba(255,255,255,0.4) !important;
+        color: rgba(255, 255, 255, 0.3) !important;
     }
     
-    /* BUTONLAR */
+    /* ==========================================
+       BUTON - NEON EFFECT
+       ========================================== */
+    @keyframes neon-glow {
+        0% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
+        50% { box-shadow: 0 0 40px rgba(96, 165, 250, 0.4), 0 0 60px rgba(167, 139, 250, 0.2); }
+        100% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
+    }
+    
     .stButton button {
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
+        background: linear-gradient(135deg, #3b82f6, #7c3aed) !important;
         color: #ffffff !important;
         border: none !important;
-        border-radius: 12px !important;
-        padding: 12px 30px !important;
+        border-radius: 16px !important;
+        padding: 14px 36px !important;
         font-weight: 700 !important;
         font-size: 16px !important;
         transition: all 0.3s ease !important;
         width: 100% !important;
+        animation: neon-glow 3s ease-in-out infinite;
+        letter-spacing: 0.5px !important;
+    }
+    
+    .stButton button:hover {
+        transform: scale(1.03) !important;
+        box-shadow: 0 8px 40px rgba(59, 130, 246, 0.5) !important;
     }
     
     .stButton button * {
         color: #ffffff !important;
     }
     
-    .stButton button:hover {
-        transform: scale(1.02) !important;
-        box-shadow: 0 8px 30px rgba(59, 130, 246, 0.4) !important;
+    /* ==========================================
+       METRİK KARTLARI - GLASS
+       ========================================== */
+    [data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.06) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 16px !important;
+        padding: 18px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
     }
     
-    /* METRİK KARTLARI */
-    [data-testid="stMetric"] {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.08) !important;
-        border-radius: 16px !important;
-        padding: 16px !important;
-        backdrop-filter: blur(10px) !important;
+    [data-testid="stMetric"]:hover {
+        border-color: rgba(96, 165, 250, 0.3) !important;
+        transform: translateY(-4px) !important;
+        box-shadow: 0 8px 32px rgba(96, 165, 250, 0.15) !important;
     }
     
     [data-testid="stMetricLabel"] {
-        color: rgba(255,255,255,0.6) !important;
-        font-size: 0.75rem !important;
+        color: rgba(255, 255, 255, 0.5) !important;
+        font-size: 0.7rem !important;
         font-weight: 600 !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
+        letter-spacing: 1px !important;
     }
     
     [data-testid="stMetricValue"] {
         color: #ffffff !important;
         font-size: 1.6rem !important;
         font-weight: 700 !important;
+        font-family: 'JetBrains Mono', monospace !important;
     }
     
     [data-testid="stMetricDelta"] {
         color: #ffffff !important;
     }
     
-    /* EXPANDER */
-    .streamlit-expanderHeader {
-        background: rgba(255,255,255,0.03) !important;
-        border: 1px solid rgba(255,255,255,0.06) !important;
-        border-radius: 12px !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }
-    
-    .streamlit-expanderHeader p {
-        color: #ffffff !important;
-    }
-    
-    .streamlit-expanderContent {
-        background: rgba(255,255,255,0.02) !important;
-        border-radius: 0 0 12px 12px !important;
-        padding: 20px !important;
-    }
-    
-    .streamlit-expanderContent * {
-        color: #ffffff !important;
-    }
-    
-    /* TABS */
+    /* ==========================================
+       TABS - MODERN
+       ========================================== */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 4px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 4px;
     }
     
     .stTabs [data-baseweb="tab"] {
-        color: rgba(255,255,255,0.6) !important;
+        color: rgba(255, 255, 255, 0.5) !important;
+        border-radius: 12px !important;
+        padding: 8px 20px !important;
+        transition: all 0.3s ease !important;
     }
     
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
         color: #ffffff !important;
+        background: rgba(96, 165, 250, 0.2) !important;
+        border: 1px solid rgba(96, 165, 250, 0.2) !important;
     }
     
-    .stTabs [data-baseweb="tab"] p {
-        color: inherit !important;
+    /* ==========================================
+       CHAT - SADECE BURASI SİYAH
+       ========================================== */
+    [data-testid="stChatMessage"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        padding: 16px !important;
+        margin: 8px 0 !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
     }
     
-    /* SELECTBOX */
-    .stSelectbox label {
-        color: #ffffff !important;
-    }
-    
-    .stSelectbox select {
-        background: rgba(255,255,255,0.08) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        color: #ffffff !important;
-        border-radius: 8px !important;
-    }
-    
-    .stSelectbox option {
-        background: #1e293b !important;
-        color: #ffffff !important;
-    }
-    
-    /* DATAFRAME */
-    .dataframe {
-        color: #ffffff !important;
-        background: rgba(255,255,255,0.05) !important;
-    }
-    
-    .dataframe th {
-        color: #ffffff !important;
-        background: rgba(59, 130, 246, 0.2) !important;
-    }
-    
-    .dataframe td {
-        color: #ffffff !important;
-    }
-    
-    /* ALERT */
-    .stAlert {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.08) !important;
-        color: #ffffff !important;
-    }
-    
-    .stAlert p {
-        color: #ffffff !important;
-    }
-    
-    /* ============================================ */
-    /* 📍 SADECE CHAT MESAJLARI SİYAH */
-    /* ============================================ */
     [data-testid="stChatMessage"] * {
-        color: #000000 !important;
+        color: #0f172a !important;
     }
     
     [data-testid="stChatMessage"] p,
@@ -238,105 +305,121 @@ st.markdown("""
     [data-testid="stChatMessage"] blockquote,
     [data-testid="stChatMessage"] pre,
     [data-testid="stChatMessage"] code {
-        color: #000000 !important;
+        color: #0f172a !important;
     }
     
-    /* CHAT INPUT YAZISI SİYAH */
+    [data-testid="stChatMessage"][data-testid="chat-message-user"] {
+        background: #e8f0fe !important;
+    }
+    
+    [data-testid="stChatMessage"][data-testid="chat-message-assistant"] {
+        background: #ffffff !important;
+    }
+    
+    /* CHAT INPUT */
+    [data-testid="stChatInput"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 2px solid #cbd5e1 !important;
+        border-radius: 14px !important;
+    }
+    
     [data-testid="stChatInput"] input {
-        color: #000000 !important;
+        color: #0f172a !important;
     }
     
     [data-testid="stChatInput"] input::placeholder {
         color: #64748b !important;
     }
     
-    /* CHAT KUTUSU ARKA PLANI - BEYAZ */
-    [data-testid="stChatMessage"] {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-        padding: 16px !important;
-        margin: 8px 0 !important;
-    }
-    
-    /* KULLANICI MESAJLARI */
-    [data-testid="stChatMessage"][data-testid="chat-message-user"] {
-        background: #e8f0fe !important;
-    }
-    
-    /* ASSISTANT MESAJLARI */
-    [data-testid="stChatMessage"][data-testid="chat-message-assistant"] {
-        background: #ffffff !important;
-    }
-    
-    /* CHAT INPUT KUTUSU */
-    [data-testid="stChatInput"] {
-        background: rgba(255,255,255,0.95) !important;
-        border: 2px solid #cbd5e1 !important;
-        border-radius: 12px !important;
-    }
-    
     [data-testid="stChatInput"] button {
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
+        background: linear-gradient(135deg, #3b82f6, #7c3aed) !important;
         color: #ffffff !important;
+        border-radius: 10px !important;
     }
     
     [data-testid="stChatInput"] button * {
         color: #ffffff !important;
     }
     
-    /* SCROLLBAR */
+    /* ==========================================
+       EXPANDER - GLASS
+       ========================================== */
+    .streamlit-expanderHeader {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 14px !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .streamlit-expanderContent {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-radius: 0 0 14px 14px !important;
+        padding: 20px !important;
+    }
+    
+    /* ==========================================
+       SELECTBOX
+       ========================================== */
+    .stSelectbox label {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+    
+    .stSelectbox select {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        padding: 10px !important;
+    }
+    
+    /* ==========================================
+       SCROLLBAR
+       ========================================== */
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
     }
     ::-webkit-scrollbar-track {
-        background: rgba(255,255,255,0.05);
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 10px;
     }
     ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        background: linear-gradient(135deg, #3b82f6, #7c3aed);
         border-radius: 10px;
     }
     
-    /* INFO BOX */
-    .stInfo {
-        background: rgba(59, 130, 246, 0.1) !important;
-        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    /* ==========================================
+       INFO/WARNING/ERROR BOXES
+       ========================================== */
+    .stAlert {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 14px !important;
+        backdrop-filter: blur(10px) !important;
     }
     
-    .stInfo p {
+    .stAlert p {
         color: #ffffff !important;
     }
     
-    /* WARNING BOX */
-    .stWarning {
-        background: rgba(245, 158, 11, 0.1) !important;
-        border: 1px solid rgba(245, 158, 11, 0.2) !important;
+    /* ==========================================
+       SEPARATOR
+       ========================================== */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent) !important;
+        margin: 20px 0 !important;
     }
     
-    .stWarning p {
-        color: #ffffff !important;
-    }
-    
-    /* ERROR BOX */
-    .stError {
-        background: rgba(239, 68, 68, 0.1) !important;
-        border: 1px solid rgba(239, 68, 68, 0.2) !important;
-    }
-    
-    .stError p {
-        color: #ffffff !important;
-    }
-    
-    /* SUCCESS BOX */
-    .stSuccess {
-        background: rgba(34, 197, 94, 0.1) !important;
-        border: 1px solid rgba(34, 197, 94, 0.2) !important;
-    }
-    
-    .stSuccess p {
-        color: #ffffff !important;
+    /* ==========================================
+       MARKDOWN
+       ========================================== */
+    .stMarkdown p {
+        color: rgba(255, 255, 255, 0.8) !important;
+        line-height: 1.6 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -363,24 +446,22 @@ def calculate_rsi(series, period=14):
 
 def get_rsi_comment(rsi_value):
     if rsi_value > 70:
-        return "Aşırı Alım 🔴"
+        return "🔥 Aşırı Alım"
     elif rsi_value < 30:
-        return "Aşırı Satım 🟢"
+        return "💎 Aşırı Satım"
     elif 40 <= rsi_value <= 60:
-        return "Nötr 🟡"
+        return "⚖️ Nötr"
     elif rsi_value > 60:
-        return "Alım Bölgesi 📈"
+        return "📈 Alım Bölgesi"
     else:
-        return "Satım Bölgesi 📉"
+        return "📉 Satım Bölgesi"
 
 # 📍 VERİ ÇEKME
 @st.cache_data(ttl=300)
 def fetch_market_data(symbol: str) -> Optional[Dict[str, Any]]:
-    """Çoklu kaynaktan veri çek"""
     clean_sym = sanitize_symbol(symbol)
     
     try:
-        # 1. Yahoo Finance
         ticker = yf.Ticker(clean_sym)
         info = ticker.info
         
@@ -391,20 +472,16 @@ def fetch_market_data(symbol: str) -> Optional[Dict[str, Any]]:
                 df = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
                 df.index = pd.to_datetime(df.index)
                 
-                # Teknik göstergeler
                 df['SMA20'] = df['Close'].rolling(20).mean()
                 df['SMA50'] = df['Close'].rolling(50).mean()
                 df['SMA200'] = df['Close'].rolling(200).mean()
                 df['RSI'] = calculate_rsi(df['Close'])
                 
-                # MACD
                 exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                 exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                 df['MACD'] = exp1 - exp2
                 df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-                df['MACD_Hist'] = df['MACD'] - df['Signal']
                 
-                # Bollinger
                 df['BB_Middle'] = df['Close'].rolling(20).mean()
                 bb_std = df['Close'].rolling(20).std()
                 df['BB_Upper'] = df['BB_Middle'] + (bb_std * 2)
@@ -423,7 +500,6 @@ def fetch_market_data(symbol: str) -> Optional[Dict[str, Any]]:
                     "info": info
                 }
         
-        # 2. Stooq (fallback)
         stooq_code = clean_sym.replace(".IS", ".TR").replace("^", "").lower()
         stooq_url = f"https://stooq.com/q/d/l/?s={stooq_code}&i=d"
         df_stooq = pd.read_csv(stooq_url)
@@ -461,12 +537,10 @@ def fetch_market_data(symbol: str) -> Optional[Dict[str, Any]]:
 # 📍 HABER ÇEKME
 @st.cache_data(ttl=300)
 def fetch_news(symbol: str) -> str:
-    """Güncel haberleri çek"""
     clean_name = symbol.replace(".IS", "").replace("^", "")
     news_list = []
     
     try:
-        # Google Haberler
         url = f"https://news.google.com/search?q={clean_name}&hl=tr&gl=TR"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, headers=headers, timeout=5)
@@ -479,70 +553,45 @@ def fetch_news(symbol: str) -> str:
                 if title and len(title) > 10:
                     news_list.append(f"• {title}")
         
-        # TradingView
-        tv_url = f"https://www.tradingview.com/symbols/BIST:{clean_name}/news/"
-        response = requests.get(tv_url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            headlines = soup.find_all('a', class_='news-item')
-            for item in headlines[:3]:
-                title = item.get_text().strip()
-                if title and len(title) > 10:
-                    news_list.append(f"• {title}")
-        
         if news_list:
             return "\n".join(news_list[:5])
         else:
             return "📡 Güncel haber bulunamadı."
             
     except Exception as e:
-        return f"📡 Haberler alınamıyor: {str(e)[:50]}"
+        return f"📡 Haberler alınamıyor"
 
 # 📍 RAKİP HİSSELER
 def get_competitors(symbol: str, market_data: Dict) -> list:
-    """Rakip hisseleri belirle"""
-    competitors = []
     all_stocks = [
         "THYAO.IS", "GARAN.IS", "AKBNK.IS", "ASELS.IS", "SISE.IS",
         "KCHOL.IS", "SAHOL.IS", "TUPRS.IS", "EREGL.IS", "PGSUS.IS"
     ]
-    
     import random
     random.seed(hash(symbol))
     competitors = random.sample([s for s in all_stocks if s != symbol], 3)
-    
     return competitors
 
-# 📍 GELİŞMİŞ AI ANALİZİ
+# 📍 AI ANALİZ
 def analyze_with_ai(prompt: str, market_data: Dict, competitors_data: list, history: list, client) -> str:
-    """ULTRA PRO AI ANALİZ"""
-    
     df = market_data['df']
     last_price = market_data['price']
     change = market_data['change']
     
-    # Teknik veriler
     last_rsi = df['RSI'].iloc[-1] if 'RSI' in df and not pd.isna(df['RSI'].iloc[-1]) else 50
     sma20 = df['SMA20'].iloc[-1] if 'SMA20' in df and not pd.isna(df['SMA20'].iloc[-1]) else last_price
     sma50 = df['SMA50'].iloc[-1] if 'SMA50' in df and not pd.isna(df['SMA50'].iloc[-1]) else last_price
     sma200 = df['SMA200'].iloc[-1] if 'SMA200' in df and not pd.isna(df['SMA200'].iloc[-1]) else last_price
     
-    # Trend
-    trend = "YÜKSELİŞ" if last_price > sma200 else "DÜŞÜŞ" if last_price < sma200 else "YATAY"
-    
-    # Destek/Direnç
+    trend = "🚀 YÜKSELİŞ" if last_price > sma200 else "📉 DÜŞÜŞ" if last_price < sma200 else "➡️ YATAY"
     support = df['Low'].tail(50).min()
     resistance = df['High'].tail(50).max()
     
-    # Volatilite
     returns = df['Close'].pct_change().dropna()
     volatility = returns.std() * (252 ** 0.5) if len(returns) > 0 else 0
-    
-    # Kazanç hesaplamaları
     monthly_return = (df['Close'].iloc[-1] / df['Close'].iloc[-22] - 1) * 100 if len(df) > 22 else 0
     yearly_return = (df['Close'].iloc[-1] / df['Close'].iloc[0] - 1) * 100 if len(df) > 0 else 0
     
-    # Rakip karşılaştırma
     comp_text = ""
     if competitors_data:
         comp_text = "\n📊 **RAKİP KARŞILAŞTIRMA:**\n"
@@ -550,17 +599,14 @@ def analyze_with_ai(prompt: str, market_data: Dict, competitors_data: list, hist
             if comp:
                 comp_text += f"  • {comp['symbol']}: {comp['price']:.2f} (%{comp['change']:+.2f})\n"
     
-    # Haberler
     news = fetch_news(market_data['symbol'])
     
-    # Kapsamlı veri metni
     data_str = f"""
 📊 **HİSSE ANALİZ VERİLERİ**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔹 Sembol: {market_data['symbol']}
 🔹 Fiyat: {last_price:.2f} TRY
 🔹 Günlük Değişim: %{change:+.2f}
-🔹 Veri Kaynağı: {market_data['data_source']}
 
 📈 **TEKNİK GÖSTERGELER**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -588,55 +634,26 @@ def analyze_with_ai(prompt: str, market_data: Dict, competitors_data: list, hist
 {news}
 """
 
-    # ULTRA PRO SYSTEM PROMPT
     system_prompt = f"""
-Sen, **BISTeknik ULTRA PRO** yapay zeka analistisin. Wall Street seviyesinde profesyonel bir quant analistsin.
+Sen, **BISTeknik PRO** yapay zeka analistisin.
 
-🎯 **GÖREVİN:**
-Kullanıcının verdiği hisse hakkında DETAYLI, KAPSAYICI ve PROFESYONEL bir analiz yap.
+🎯 **GÖREV:** Kullanıcının hissesi hakkında DETAYLI analiz yap.
 
-📋 **ANALİZ FORMATI (5-6 PARAGRAF):**
+📋 **FORMAT (6 PARAGRAF):**
+1. ÖZET GÖRÜŞ - Genel değerlendirme, kısa/orta/uzun vade beklenti
+2. TEKNİK ANALİZ - RSI, SMA, MACD, Bollinger yorumu, destek/direnç
+3. GETİRİ & RİSK - Aylık/Yıllık getiri, volatilite, risk/getiri potansiyeli
+4. REKABET - Rakiplerle karşılaştırma, sektörel performans
+5. HABER & GÜNDEM - Güncel haberlerin etkisi, makro faktörler
+6. SONUÇ & STRATEJİ - Kısa/Orta/Uzun vade strateji, izlenecek seviyeler
 
-1. **ÖZET GÖRÜŞ** (1 paragraf)
-   - Hisse hakkında genel değerlendirme
-   - Kısa, orta, uzun vade beklenti
-   - 1-2 cümlede özet
-
-2. **TEKNİK ANALİZ** (1-2 paragraf)
-   - RSI yorumu ve olası hareketler
-   - SMA'ların konumu ve trend durumu
-   - MACD ve Bollinger Band yorumu
-   - Destek/Direnç seviyeleri ve kırılma senaryoları
-
-3. **GETİRİ VE RİSK ANALİZİ** (1 paragraf)
-   - Aylık/Yıllık getiri değerlendirmesi
-   - Volatilite analizi
-   - Risk/Getiri potansiyeli
-   - Olası hedef fiyatlar
-
-4. **REKABET ANALİZİ** (1 paragraf)
-   - Rakiplerle karşılaştırma
-   - Sektörel performans
-   - Piyasa konumu
-
-5. **HABER VE GÜNDEM** (1 paragraf)
-   - Güncel haberlerin etkisi
-   - Makroekonomik faktörler
-   - Yakın vadeli katalizörler
-
-6. **SONUÇ VE STRATEJİ** (1 paragraf)
-   - Kısa/Orta/Uzun vade strateji
-   - İzlenecek seviyeler
-   - Son değerlendirme
-
-⚠️ **KURALLAR:**
-- Sadece verilen GERÇEK VERİLERE dayan
-- Yatırım tavsiyesi VERME, analiz yap
+⚠️ KURALLAR:
+- Sadece GERÇEK VERİLERE dayan
+- Yatırım tavsiyesi VERME
 - Teknik terimleri doğru kullan
-- Türkçe yaz, İngilizce terimlerle destekle
-- Objektif ve profesyonel ol
+- Türkçe yaz
 
-📊 **MEVCUT VERİLER:**
+📊 **VERİLER:**
 {data_str}
 """
 
@@ -675,29 +692,38 @@ except Exception as e:
     st.error(f"❌ Client hatası: {e}")
     st.stop()
 
-# Başlık
+# ============================================================
+# 📍 LOGO ve BAŞLIK
+# ============================================================
 st.markdown("""
-<div style="text-align: center; padding: 20px 0 10px 0;">
-    <h1 style="font-size: 3rem; margin: 0;">🚀 BISTeknik PRO</h1>
-    <p style="color: rgba(255,255,255,0.5); font-size: 1rem; margin: 0;">Ultra Profesyonel AI Quant Terminal</p>
+<div style="display: flex; justify-content: center; padding: 20px 0 10px 0;">
+    <div class="logo-container">
+        <div class="logo-icon">📈</div>
+        <div>
+            <div class="logo-text">BISTeknik PRO</div>
+            <div class="logo-sub">AI QUANT TERMINAL</div>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
+# ============================================================
 # 📍 ANA SEARCH
+# ============================================================
 search_col1, search_col2 = st.columns([3, 1])
 
 with search_col1:
     user_input = st.text_input(
         "",
-        placeholder="🔍 Hisse kodu veya ismi girin... (Örnek: SASA, THYAO, GARAN)",
+        placeholder="🔍 Hisse kodu girin... (Örnek: SASA, THYAO, GARAN)",
         label_visibility="collapsed",
         key="search_input"
     )
 
 with search_col2:
-    analyze_btn = st.button("🎯 ANALİZ ET", use_container_width=True)
+    analyze_btn = st.button("🚀 ANALİZ ET", use_container_width=True)
 
 # Session state
 if "messages" not in st.session_state:
@@ -709,17 +735,17 @@ if "market_data" not in st.session_state:
 if "competitors" not in st.session_state:
     st.session_state.competitors = []
 
-# Analiz yap
+# ============================================================
+# 📍 ANALİZ
+# ============================================================
 if analyze_btn and user_input:
-    with st.spinner("🚀 Veriler çekiliyor ve analiz yapılıyor..."):
-        # Veri çek
+    with st.spinner("🚀 Veriler çekiliyor..."):
         symbol = sanitize_symbol(user_input)
         market_data = fetch_market_data(symbol)
         
         if market_data:
             st.session_state.market_data = market_data
             
-            # Rakipleri çek
             comp_symbols = get_competitors(symbol, market_data)
             competitors = []
             for comp_sym in comp_symbols:
@@ -728,7 +754,6 @@ if analyze_btn and user_input:
                     competitors.append(comp_data)
             st.session_state.competitors = competitors
             
-            # AI Analizi
             prompt = f"{symbol} hissesi için detaylı profesyonel analiz yap."
             analysis = analyze_with_ai(
                 prompt,
@@ -741,9 +766,11 @@ if analyze_btn and user_input:
             st.session_state.messages.append({"role": "assistant", "content": analysis})
             st.rerun()
         else:
-            st.error(f"❌ {symbol} için veri bulunamadı. Lütfen geçerli bir hisse kodu girin.")
+            st.error(f"❌ {symbol} için veri bulunamadı")
 
-# 📊 ANA GÖSTERİM
+# ============================================================
+# 📊 GÖSTERİM
+# ============================================================
 if st.session_state.market_data:
     data = st.session_state.market_data
     df = data['df']
@@ -754,36 +781,35 @@ if st.session_state.market_data:
     with col1:
         st.metric(
             "💰 Fiyat",
-            f"{data['price']:.2f} TRY",
+            f"{data['price']:.2f} ₺",
             f"%{data['change']:+.2f}",
             delta_color="normal" if data['change'] >= 0 else "inverse"
         )
     
     with col2:
         last_rsi = df['RSI'].iloc[-1] if 'RSI' in df else 50
-        st.metric("📊 RSI (14)", f"{last_rsi:.1f}", get_rsi_comment(last_rsi))
+        st.metric("📊 RSI", f"{last_rsi:.1f}", get_rsi_comment(last_rsi))
     
     with col3:
         sma20 = df['SMA20'].iloc[-1] if 'SMA20' in df else 0
-        st.metric("📈 SMA20", f"{sma20:.2f}")
+        st.metric("📈 SMA20", f"{sma20:.2f} ₺")
     
     with col4:
         sma50 = df['SMA50'].iloc[-1] if 'SMA50' in df else 0
-        st.metric("📈 SMA50", f"{sma50:.2f}")
+        st.metric("📈 SMA50", f"{sma50:.2f} ₺")
     
     with col5:
         monthly_return = (df['Close'].iloc[-1] / df['Close'].iloc[-22] - 1) * 100 if len(df) > 22 else 0
-        st.metric("📆 Aylık Getiri", f"%{monthly_return:+.2f}")
+        st.metric("📆 Aylık", f"%{monthly_return:+.2f}")
     
     st.markdown("---")
     
     # 📍 GRAFİKLER
-    tab1, tab2, tab3 = st.tabs(["📈 Fiyat ve SMA", "📊 Teknik Göstergeler", "📉 Karşılaştırma"])
+    tab1, tab2, tab3 = st.tabs(["📈 Fiyat & SMA", "📊 Teknik Göstergeler", "📉 Karşılaştırma"])
     
     with tab1:
         fig = go.Figure()
         
-        # Mum grafiği
         fig.add_trace(go.Candlestick(
             x=df.index[-90:],
             open=df['Open'].iloc[-90:],
@@ -795,7 +821,6 @@ if st.session_state.market_data:
             decreasing_line_color='#ef4444'
         ))
         
-        # SMA'lar
         fig.add_trace(go.Scatter(
             x=df.index[-90:],
             y=df['SMA20'].iloc[-90:],
@@ -817,11 +842,11 @@ if st.session_state.market_data:
             y=df['SMA200'].iloc[-90:],
             mode='lines',
             name='SMA 200',
-            line=dict(color='#8b5cf6', width=1.5, dash='dash')
+            line=dict(color='#a78bfa', width=1.5, dash='dash')
         ))
         
         fig.update_layout(
-            title=f"{data['symbol']} — Fiyat ve Hareketli Ortalamalar",
+            title=f"<b>{data['symbol']}</b> — Fiyat ve Hareketli Ortalamalar",
             template="plotly_dark",
             height=500,
             paper_bgcolor="rgba(0,0,0,0)",
@@ -837,7 +862,6 @@ if st.session_state.market_data:
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.1,
                             row_heights=[0.6, 0.4])
         
-        # MACD
         fig.add_trace(go.Scatter(
             x=df.index[-90:],
             y=df['MACD'].iloc[-90:],
@@ -854,7 +878,6 @@ if st.session_state.market_data:
             line=dict(color='#f59e0b', width=1.5)
         ), row=1, col=1)
         
-        # RSI
         fig.add_trace(go.Scatter(
             x=df.index[-90:],
             y=df['RSI'].iloc[-90:],
@@ -867,7 +890,7 @@ if st.session_state.market_data:
         fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", opacity=0.3, row=2, col=1)
         
         fig.update_layout(
-            title=f"{data['symbol']} — MACD ve RSI",
+            title=f"<b>{data['symbol']}</b> — MACD ve RSI",
             template="plotly_dark",
             height=500,
             paper_bgcolor="rgba(0,0,0,0)",
@@ -881,7 +904,6 @@ if st.session_state.market_data:
         if st.session_state.competitors:
             fig = go.Figure()
             
-            # Ana hisse
             fig.add_trace(go.Scatter(
                 x=df.index[-90:],
                 y=df['Close'].iloc[-90:],
@@ -890,7 +912,6 @@ if st.session_state.market_data:
                 line=dict(color='#3b82f6', width=3)
             ))
             
-            # Rakipler
             colors = ['#22c55e', '#f59e0b', '#ef4444']
             for i, comp in enumerate(st.session_state.competitors[:3]):
                 if comp and comp.get('df') is not None:
@@ -904,7 +925,7 @@ if st.session_state.market_data:
                     ))
             
             fig.update_layout(
-                title=f"{data['symbol']} — Rakiplerle Karşılaştırma",
+                title=f"<b>{data['symbol']}</b> — Rakiplerle Karşılaştırma",
                 template="plotly_dark",
                 height=400,
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -924,7 +945,8 @@ if st.session_state.market_data:
     
     # 📍 AI ANALİZ
     st.markdown("---")
-    st.markdown("### 🤖 AI QUANT ANALİZ")
+    st.markdown('<h3 style="text-align: center;">🤖 AI QUANT ANALİZ</h3>', unsafe_allow_html=True)
+    st.markdown("---")
     
     for msg in st.session_state.messages:
         with st.chat_message("assistant"):
@@ -949,20 +971,24 @@ if st.session_state.market_data:
             st.rerun()
 
 else:
-    # Başlangıç ekranı
+    # ============================================================
+    # 📍 BAŞLANGIÇ EKRANI
+    # ============================================================
     st.markdown("""
-    <div style="text-align: center; padding: 60px 20px;">
-        <div style="font-size: 72px; margin-bottom: 20px;">🚀</div>
-        <h2 style="font-size: 2rem; margin-bottom: 10px; color: #ffffff;">Profesyonel AI Quant Terminal</h2>
-        <p style="color: rgba(255,255,255,0.5); font-size: 1.1rem;">
-            Yukarıdaki arama kutusuna bir hisse kodu yazın ve analiz edin.
+    <div style="text-align: center; padding: 80px 20px;">
+        <div style="font-size: 80px; margin-bottom: 24px; animation: pulse-glow 3s ease-in-out infinite;">
+            📈
+        </div>
+        <h2 style="font-size: 2.5rem; margin-bottom: 12px;">Profesyonel AI Quant Terminal</h2>
+        <p style="color: rgba(255,255,255,0.4); font-size: 1.1rem; max-width: 500px; margin: 0 auto;">
+            Yukarıdaki arama kutusuna bir hisse kodu yazın ve anında detaylı analiz alın.
         </p>
-        <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">📊 SASA</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">✈️ THYAO</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">🏦 GARAN</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">🔧 ASELS</span>
-            <span style="background: rgba(255,255,255,0.05); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); color: #ffffff;">🛢️ TUPRS</span>
+        <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">📊 SASA</span>
+            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">✈️ THYAO</span>
+            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">🏦 GARAN</span>
+            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">🔧 ASELS</span>
+            <span style="background: rgba(255,255,255,0.06); padding: 10px 24px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);">🛢️ TUPRS</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
