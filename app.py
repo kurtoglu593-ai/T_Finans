@@ -9,9 +9,14 @@ import plotly.io as pio
 from plotly.subplots import make_subplots
 from groq import Groq
 import logging
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 import time
 from tenacity import retry, stop_after_attempt, wait_exponential
+import concurrent.futures
+from dotenv import load_dotenv
+
+# .env dosyasını yükle
+load_dotenv()
 
 # 📍 Logging konfigürasyonu
 logging.basicConfig(
@@ -27,6 +32,10 @@ class Config:
     TV_SCAN_URL = "https://scanner.tradingview.com/turkey/scan"
     STOOQ_BASE_URL = "https://stooq.com/q/d/l/"
     FX_BASE_URL = "https://api.frankfurter.app"
+    
+    # API Key'ler
+    ALPHA_VANTAGE_KEY = os.environ.get("ALPHA_VANTAGE_KEY", "")
+    FINNHUB_KEY = os.environ.get("FINNHUB_KEY", "")
 
     # Cache süreleri
     CACHE_TTL_SHORT = 300
@@ -51,6 +60,33 @@ except ImportError:
     import requests as cffi_requests
     HAS_CURL_CFFI = False
     logger.warning("curl_cffi yüklü değil, standart requests kullanılıyor")
+
+# 📍 YENİ: Yahoo Finance Entegrasyonu
+try:
+    import yfinance as yf
+    HAS_YFINANCE = True
+    logger.info("yfinance başarıyla yüklendi")
+except ImportError:
+    HAS_YFINANCE = False
+    logger.warning("yfinance yüklü değil")
+
+# 📍 YENİ: Alpha Vantage Entegrasyonu
+try:
+    from alpha_vantage.timeseries import TimeSeries
+    HAS_ALPHA_VANTAGE = True if Config.ALPHA_VANTAGE_KEY else False
+    logger.info(f"Alpha Vantage: {'aktif' if HAS_ALPHA_VANTAGE else 'API key yok'}")
+except ImportError:
+    HAS_ALPHA_VANTAGE = False
+    logger.warning("alpha_vantage yüklü değil")
+
+# 📍 YENİ: Finnhub Entegrasyonu
+try:
+    import finnhub
+    HAS_FINNHUB = True if Config.FINNHUB_KEY else False
+    logger.info(f"Finnhub: {'aktif' if HAS_FINNHUB else 'API key yok'}")
+except ImportError:
+    HAS_FINNHUB = False
+    logger.warning("finnhub-python yüklü değil")
 
 # Model Tanımlamaları
 MODEL_70B = Config.GROQ_MODEL
@@ -288,6 +324,42 @@ st.markdown("""
     .js-plotly-plot .plotly .main-svg {
         background: transparent !important;
     }
+    
+    .data-source-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        margin-left: 8px;
+        background: rgba(37, 99, 235, 0.2);
+        color: #3b82f6;
+        border: 1px solid rgba(37, 99, 235, 0.3);
+    }
+    
+    .data-source-badge.yahoo {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+        border-color: rgba(34, 197, 94, 0.3);
+    }
+    
+    .data-source-badge.stooq {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+        border-color: rgba(245, 158, 11, 0.3);
+    }
+    
+    .data-source-badge.tv {
+        background: rgba(139, 92, 246, 0.2);
+        color: #8b5cf6;
+        border-color: rgba(139, 92, 246, 0.3);
+    }
+    
+    .data-source-badge.fallback {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border-color: rgba(239, 68, 68, 0.3);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -321,7 +393,17 @@ def extract_symbol_fast(text: str, default_sym: str = "THYAO.IS") -> str:
             return sanitize_symbol(w)
     return default_sym
 
-def calculate_rsi(series, period=Config.RSI_PERIOD):
+def calculate_rsi(series: pd.Series, period: int = Config.RSI_PERIOD) -> pd.Series:
+    """
+    Relative Strength Index (RSI) hesaplar.
+    
+    Args:
+        series: Fiyat serisi
+        period: Hesaplama periyodu (varsayılan: 14)
+    
+    Returns:
+        RSI değerleri serisi
+    """
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).ewm(alpha=1/period, adjust=False).mean()
     loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/period, adjust=False).mean()
@@ -329,7 +411,7 @@ def calculate_rsi(series, period=Config.RSI_PERIOD):
     rsi = 100 - (100 / (1 + rs))
     return rsi.fillna(50).clip(0, 100)
 
-def determine_trend(price, sma20, sma50):
+def determine_trend(price: float, sma20: Optional[float], sma50: Optional[float]) -> Tuple[str, str]:
     """Trend yönünü belirle - Daha doğru algoritma"""
     if sma20 is None or pd.isna(sma20):
         return "VERİ YOK", "❓"
@@ -374,7 +456,7 @@ def determine_trend(price, sma20, sma50):
         else:
             return "YATAY", "➡️"
 
-def get_rsi_comment(rsi_value):
+def get_rsi_comment(rsi_value: float) -> Tuple[str, str]:
     if rsi_value > 70:
         return "Aşırı Alım", "inverse"
     elif rsi_value < 30:
@@ -402,14 +484,12 @@ def get_browser_session():
     return _browser_session
 
 # ============================================================
-# 📍 DÜZELTME 1: TradingView'dan artık SADECE canlı fiyat/RSI
-# çekiliyor. Eskiden burada np.linspace + np.random ile 29
-# günlük SAHTE mum geçmişi üretiliyordu — bu tamamen kaldırıldı.
+# 📍 VERİ KAYNAKLARI (SIRALI DENEME)
 # ============================================================
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
 def fetch_tv_quote(tv_symbol: str) -> Optional[Dict[str, Any]]:
-    """TradingView scanner API'den SADECE canlı fiyat/değişim/RSI döner.
-    Hiçbir geçmiş mum verisi uydurmaz."""
+    """TradingView scanner API'den SADECE canlı fiyat/değişim/RSI döner."""
     session = get_browser_session()
     payload = {
         "symbols": {"tickers": [tv_symbol]},
@@ -441,8 +521,7 @@ def fetch_tv_quote(tv_symbol: str) -> Optional[Dict[str, Any]]:
         }
     except Exception as e:
         logger.error(f"TradingView hatası ({tv_symbol}): {e}")
-        raise
-
+        return None
 
 def tv_symbol_for(clean_sym: str) -> str:
     ticker_clean = clean_sym.replace(".IS", "").replace("^", "").upper()
@@ -452,9 +531,8 @@ def tv_symbol_for(clean_sym: str) -> str:
         return "BIST:XBANA"
     return f"BIST:{ticker_clean}"
 
-
-def fetch_stooq_data(symbol: str):
-    """Stooq'tan GERÇEK günlük OHLC geçmişi çeker (uydurma yok)."""
+def fetch_stooq_data(symbol: str) -> Optional[pd.DataFrame]:
+    """Stooq'tan GERÇEK günlük OHLC geçmişi çeker."""
     try:
         stooq_code = symbol.replace(".IS", ".TR").replace("^", "").lower()
         stooq_url = f"{Config.STOOQ_BASE_URL}?s={stooq_code}&i=d"
@@ -481,6 +559,314 @@ def fetch_stooq_data(symbol: str):
 
     return None
 
+# 📍 YENİ: Yahoo Finance Veri Kaynağı
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def fetch_yahoo_data(symbol: str) -> Optional[Dict[str, Any]]:
+    """Yahoo Finance'ten gerçek zamanlı veri çeker"""
+    if not HAS_YFINANCE:
+        return None
+        
+    try:
+        # BIST hisseleri için .IS -> .IS (Yahoo'da aynı)
+        yahoo_symbol = symbol.replace(".IS", ".IS")
+        
+        # Ticker objesi oluştur
+        ticker = yf.Ticker(yahoo_symbol)
+        
+        # Gerçek zamanlı veri
+        info = ticker.info
+        
+        if not info or 'regularMarketPrice' not in info:
+            logger.warning(f"Yahoo: {symbol} için veri bulunamadı")
+            return None
+            
+        # Geçmiş veri (son 100 gün)
+        hist = ticker.history(period="3mo")
+        
+        if hist.empty:
+            logger.warning(f"Yahoo: {symbol} için geçmiş veri yok")
+            # Sadece canlı veri döndür
+            return {
+                "symbol": symbol,
+                "price": float(info.get('regularMarketPrice', 0)),
+                "change": float(info.get('regularMarketChangePercent', 0)),
+                "currency": "TRY",
+                "support": float(info.get('dayLow', 0)),
+                "resistance": float(info.get('dayHigh', 0)),
+                "df": None,
+                "data_source": "Yahoo Finance (sadece canlı)"
+            }
+        
+        # DataFrame'i hazırla
+        df = hist[['Open', 'High', 'Low', 'Close']].copy()
+        df.index = pd.to_datetime(df.index)
+        
+        # Teknik indikatörler
+        df['SMA20'] = df['Close'].rolling(Config.SMA_FAST).mean()
+        df['SMA50'] = df['Close'].rolling(Config.SMA_SLOW).mean()
+        df['RSI'] = calculate_rsi(df['Close'])
+        
+        last_price = float(df['Close'].iloc[-1])
+        change_pct = float(info.get('regularMarketChangePercent', 0))
+        
+        return {
+            "symbol": symbol,
+            "price": last_price,
+            "change": change_pct,
+            "currency": "TRY",
+            "support": float(df['Low'].tail(20).min()),
+            "resistance": float(df['High'].tail(20).max()),
+            "df": df,
+            "data_source": "Yahoo Finance (tam veri)"
+        }
+        
+    except Exception as e:
+        logger.error(f"Yahoo Finance hatası ({symbol}): {e}")
+        return None
+
+# 📍 YENİ: Alpha Vantage Veri Kaynağı
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=5))
+def fetch_alpha_vantage_data(symbol: str) -> Optional[Dict[str, Any]]:
+    """Alpha Vantage API'den veri çeker"""
+    if not HAS_ALPHA_VANTAGE or not Config.ALPHA_VANTAGE_KEY:
+        return None
+        
+    try:
+        ts = TimeSeries(key=Config.ALPHA_VANTAGE_KEY, output_format='pandas')
+        
+        # Hisse senedi verisi
+        data, meta_data = ts.get_daily(symbol=symbol.replace('.IS', ''), outputsize='compact')
+        
+        if data.empty:
+            return None
+            
+        # Veriyi yeniden adlandır
+        data.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        data.index = pd.to_datetime(data.index)
+        
+        # Teknik indikatörler
+        data['SMA20'] = data['Close'].rolling(Config.SMA_FAST).mean()
+        data['SMA50'] = data['Close'].rolling(Config.SMA_SLOW).mean()
+        data['RSI'] = calculate_rsi(data['Close'])
+        
+        last_price = float(data['Close'].iloc[-1])
+        
+        return {
+            "symbol": symbol,
+            "price": last_price,
+            "change": 0.0,  # Alpha Vantage'dan değişim gelmiyor
+            "currency": "TRY",
+            "support": float(data['Low'].tail(20).min()),
+            "resistance": float(data['High'].tail(20).max()),
+            "df": data,
+            "data_source": "Alpha Vantage"
+        }
+        
+    except Exception as e:
+        logger.error(f"Alpha Vantage hatası: {e}")
+        return None
+
+# 📍 YENİ: Finnhub Veri Kaynağı
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=5))
+def fetch_finnhub_data(symbol: str) -> Optional[Dict[str, Any]]:
+    """Finnhub API'den gerçek zamanlı veri çeker"""
+    if not HAS_FINNHUB or not Config.FINNHUB_KEY:
+        return None
+        
+    try:
+        client = finnhub.Client(api_key=Config.FINNHUB_KEY)
+        
+        # Gerçek zamanlı fiyat
+        quote = client.quote(symbol.replace('.IS', ''))
+        
+        if not quote or quote.get('c', 0) == 0:
+            return None
+            
+        # Geçmiş veri (son 100 gün)
+        end_date = datetime.datetime.now()
+        start_date = end_date - datetime.timedelta(days=100)
+        
+        url = f"https://finnhub.io/api/v1/stock/candle?symbol={symbol.replace('.IS', '')}&resolution=D&from={int(start_date.timestamp())}&to={int(end_date.timestamp())}&token={Config.FINNHUB_KEY}"
+        
+        response = cffi_requests.get(url, timeout=5)
+        data = response.json()
+        
+        if data.get('s') != 'ok':
+            # Sadece canlı veri döndür
+            return {
+                "symbol": symbol,
+                "price": float(quote.get('c', 0)),
+                "change": float(quote.get('dp', 0)),
+                "currency": "TRY",
+                "support": float(quote.get('l', 0)),
+                "resistance": float(quote.get('h', 0)),
+                "df": None,
+                "data_source": "Finnhub (sadece canlı)"
+            }
+        
+        # DataFrame oluştur
+        df = pd.DataFrame({
+            'Open': data['o'],
+            'High': data['h'],
+            'Low': data['l'],
+            'Close': data['c']
+        }, index=pd.to_datetime(data['t'], unit='s'))
+        
+        # Teknik indikatörler
+        df['SMA20'] = df['Close'].rolling(Config.SMA_FAST).mean()
+        df['SMA50'] = df['Close'].rolling(Config.SMA_SLOW).mean()
+        df['RSI'] = calculate_rsi(df['Close'])
+        
+        return {
+            "symbol": symbol,
+            "price": float(quote.get('c', 0)),
+            "change": float(quote.get('dp', 0)),
+            "currency": "TRY",
+            "support": float(df['Low'].tail(20).min()),
+            "resistance": float(df['High'].tail(20).max()),
+            "df": df,
+            "data_source": "Finnhub"
+        }
+        
+    except Exception as e:
+        logger.error(f"Finnhub hatası: {e}")
+        return None
+
+# 📍 VERİ STANDARDİZASYONU
+def standardize_data(data: Dict, symbol: str) -> Optional[Dict]:
+    """Farklı kaynaklardan gelen verileri standartlaştırır"""
+    try:
+        # Eğer data zaten standart formattaysa
+        if 'df' in data and isinstance(data['df'], pd.DataFrame):
+            # Eksik alanları doldur
+            if 'currency' not in data:
+                data['currency'] = 'TRY' if '.IS' in symbol else 'USD'
+            if 'support' not in data and 'df' in data and not data['df'].empty:
+                data['support'] = float(data['df']['Low'].tail(20).min())
+            if 'resistance' not in data and 'df' in data and not data['df'].empty:
+                data['resistance'] = float(data['df']['High'].tail(20).max())
+            return data
+        
+        # TradingView'den gelen ham veriyi standartlaştır
+        if 'price' in data and 'change' in data:
+            if 'df' not in data:
+                # Tek satırlık veri oluştur
+                today = pd.Timestamp(datetime.datetime.now().date())
+                df_single = pd.DataFrame({
+                    'Open': [data.get('open', data['price'])],
+                    'High': [data.get('high', data['price'])],
+                    'Low': [data.get('low', data['price'])],
+                    'Close': [data['price']]
+                }, index=[today])
+                data['df'] = df_single
+            
+            return {
+                "symbol": symbol,
+                "price": float(data['price']),
+                "change": float(data['change']),
+                "currency": "TRY" if '.IS' in symbol else "USD",
+                "support": float(data.get('support', data.get('low', data['price'] * 0.95))),
+                "resistance": float(data.get('resistance', data.get('high', data['price'] * 1.05))),
+                "df": data['df'],
+                "data_source": data.get('data_source', 'Standardized')
+            }
+            
+    except Exception as e:
+        logger.error(f"Standardizasyon hatası: {e}")
+        return None
+
+# 📍 VERİ YÖNETİCİSİ (FALLBACK MEKANİZMASI)
+class MarketDataManager:
+    """Veri yönetimi ve fallback mekanizması"""
+    
+    def __init__(self):
+        self.cache = {}
+        self.last_success = {}
+        self.failure_count = {}
+        self.data_sources = []
+        
+        # Veri kaynaklarını sıralı olarak ekle
+        if HAS_YFINANCE:
+            self.data_sources.append(('yahoo', fetch_yahoo_data))
+        self.data_sources.append(('stooq', fetch_stooq_data))
+        self.data_sources.append(('tradingview', lambda x: fetch_tv_quote(tv_symbol_for(x))))
+        if HAS_ALPHA_VANTAGE:
+            self.data_sources.append(('alpha_vantage', fetch_alpha_vantage_data))
+        if HAS_FINNHUB:
+            self.data_sources.append(('finnhub', fetch_finnhub_data))
+        
+        logger.info(f"Veri kaynakları: {[s[0] for s in self.data_sources]}")
+        
+    def get_data(self, symbol: str, force_refresh: bool = False) -> Optional[Dict]:
+        """Gelişmiş veri çekme yönetimi"""
+        
+        # Cache kontrolü
+        cache_key = f"{symbol}_{datetime.datetime.now().date()}"
+        if not force_refresh and cache_key in self.cache:
+            logger.info(f"Cache'den alınıyor: {symbol}")
+            return self.cache[cache_key]
+        
+        # Veri çek
+        result = self._fetch_with_fallback(symbol)
+        
+        if result:
+            self.cache[cache_key] = result
+            self.last_success[symbol] = datetime.datetime.now()
+            self.failure_count[symbol] = 0
+            return result
+        
+        # Fallback: Daha önce başarılı olan veriyi kullan
+        if symbol in self.last_success:
+            age = (datetime.datetime.now() - self.last_success[symbol]).seconds / 60
+            if age < 15:  # 15 dakikadan eski değilse
+                logger.warning(f"⚠️ {symbol} için eski veri kullanılıyor ({age:.1f} dakika)")
+                return self.cache.get(cache_key)
+        
+        # Fallback: Sabit örnek veri (ÇOK ACİL DURUM)
+        self.failure_count[symbol] = self.failure_count.get(symbol, 0) + 1
+        if self.failure_count[symbol] > 3:
+            logger.critical(f"🚨 {symbol} için veri alınamıyor!")
+            
+        return None
+    
+    def _fetch_with_fallback(self, symbol: str) -> Optional[Dict]:
+        """Tüm veri kaynaklarını sırayla dene"""
+        clean_sym = sanitize_symbol(symbol)
+        logger.info(f"Veri çekiliyor: {clean_sym}")
+        
+        last_error = None
+        for source_name, fetch_func in self.data_sources:
+            try:
+                logger.info(f"Deneniyor: {source_name}")
+                result = fetch_func(clean_sym)
+                
+                if result and isinstance(result, dict):
+                    # Sonuçları standartlaştır
+                    standardized = standardize_data(result, clean_sym)
+                    if standardized:
+                        logger.info(f"✅ {source_name} başarılı!")
+                        return standardized
+                        
+            except Exception as e:
+                last_error = e
+                logger.warning(f"❌ {source_name} başarısız: {e}")
+                continue
+        
+        logger.error(f"⚠️ {clean_sym} için TÜM veri kaynakları başarısız!")
+        if last_error:
+            logger.error(f"Son hata: {last_error}")
+        
+        return None
+
+# 📍 DATA MANAGER INSTANCE
+data_manager = MarketDataManager()
+
+# ============================================================
+# 📍 ANA VERİ ÇEKME FONKSİYONU (ARTIK DATA MANAGER KULLANIYOR)
+# ============================================================
+def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
+    """Çoklu veri kaynağı ile güvenilir veri çekme"""
+    return data_manager.get_data(symbol)
 
 def validate_market_data(data: Dict[str, Any]) -> bool:
     required_fields = ['symbol', 'price', 'change', 'df']
@@ -497,143 +883,20 @@ def validate_market_data(data: Dict[str, Any]) -> bool:
     if abs(data['change']) > 20:
         logger.warning(f"Anormal değişim: {data['change']:.2f}%")
         return False
+    
+    # Yeni kontroller
+    if data['price'] <= 0:
+        logger.error(f"Geçersiz fiyat: {data['price']}")
+        return False
+        
+    # Değişim oranının aşırı yüksek olmadığını kontrol et
+    if abs(data['change']) > 30:  # %30'dan fazla değişim anormal
+        logger.warning(f"Anormal değişim: {data['change']:.2f}%")
+        return False
 
     return True
 
-
-# ============================================================
-# 📍 DÜZELTME 2: Geçmiş veri artık Stooq'tan (gerçek), canlı
-# fiyat TradingView'dan geliyor ve bugünün mumu canlı veriyle
-# GÜNCELLENİYOR — geçmiş asla enterpolasyon/random ile
-# uydurulmuyor. Stooq da başarısız olursa, sadece "tek noktalı"
-# gerçek canlı fiyat gösterilir; sahte geçmiş eklenmez.
-# ============================================================
-def fetch_real_market_data(symbol: str) -> Optional[Dict[str, Any]]:
-    clean_sym = sanitize_symbol(symbol)
-    logger.info(f"Veri çekiliyor: {clean_sym}")
-    tv_symbol = tv_symbol_for(clean_sym)
-
-    # 1) Gerçek geçmiş (Stooq)
-    df_hist = None
-    try:
-        df_hist = fetch_stooq_data(clean_sym)
-    except Exception as e:
-        logger.error(f"Stooq hatası ({clean_sym}): {e}")
-
-    # 2) Gerçek canlı fiyat (TradingView)
-    live = None
-    try:
-        live = fetch_tv_quote(tv_symbol)
-    except Exception as e:
-        logger.error(f"TradingView hatası ({clean_sym}): {e}")
-
-    curr = 'TRY' if (clean_sym.endswith('.IS') or 'XU100' in clean_sym or 'XBANA' in clean_sym) else 'USD'
-
-    if df_hist is not None and len(df_hist) >= 5:
-        df = df_hist.copy()
-
-        # Bugünün mumunu GERÇEK canlı veriyle güncelle (varsa)
-        if live:
-            today = pd.Timestamp(datetime.datetime.now().date())
-            df.loc[today, ['Open', 'High', 'Low', 'Close']] = [
-                live['open'], live['high'], live['low'], live['price']
-            ]
-            df.sort_index(inplace=True)
-
-        df['SMA20'] = df['Close'].rolling(Config.SMA_FAST).mean()
-        df['SMA50'] = df['Close'].rolling(Config.SMA_SLOW).mean()
-        df['RSI'] = calculate_rsi(df['Close'], Config.RSI_PERIOD)  # her satır için gerçek hesap, sabit değer basılmıyor
-
-        last_p = float(df['Close'].iloc[-1])
-        prev_p = float(df['Close'].iloc[-2]) if len(df) > 1 else last_p
-        pct_chg = live['change'] if live else (((last_p - prev_p) / prev_p) * 100.0 if prev_p else 0.0)
-
-        support = float(df['Low'].tail(20).min())
-        resistance = float(df['High'].tail(20).max())
-
-        result = {
-            "symbol": clean_sym,
-            "price": last_p,
-            "change": float(pct_chg),
-            "currency": curr,
-            "support": support,
-            "resistance": resistance,
-            "df": df,
-            "data_source": "Stooq (gerçek geçmiş)" + (" + TradingView (canlı)" if live else " (sadece gün sonu)")
-        }
-        if validate_market_data(result):
-            return result
-
-    # 3) Stooq geçmişi yoksa ama canlı fiyat varsa: sahte geçmiş EKLEMEDEN
-    #    sadece bugünün gerçek verisini tek satır olarak göster.
-    if live:
-        today = pd.Timestamp(datetime.datetime.now().date())
-        df_single = pd.DataFrame({
-            'Open': [live['open']], 'High': [live['high']],
-            'Low': [live['low']], 'Close': [live['price']]
-        }, index=[today])
-        df_single['SMA20'] = np.nan
-        df_single['SMA50'] = np.nan
-        df_single['RSI'] = live['rsi'] if live['rsi'] is not None else np.nan
-
-        return {
-            "symbol": clean_sym,
-            "price": live['price'],
-            "change": live['change'],
-            "currency": curr,
-            "support": live['low'],
-            "resistance": live['high'],
-            "df": df_single,
-            "data_source": "Sadece TradingView canlı fiyat (geçmiş grafik yok)"
-        }
-
-    logger.error(f"⚠️ {clean_sym} için hiçbir veri kaynağından veri alınamadı!")
-    return None
-
-
-@st.cache_data(ttl=Config.CACHE_TTL_MEDIUM)
-def get_top_volume_bist100_symbols():
-    """Gerçek hacim sıralaması. Veri alınamazsa BOŞ sözlük döner —
-    eskiden burada sabit uydurma değerler vardı, kaldırıldı."""
-    session = get_browser_session()
-    url = Config.TV_SCAN_URL
-    payload = {
-        "filter": [{"left": "exchange", "operation": "equal", "right": "BIST"}],
-        "options": {"lang": "tr"},
-        "symbols": {"query": {"types": []}},
-        "columns": ["name", "close", "change", "volume", "market_cap_basic"],
-        "sort": {"sortBy": "volume", "sortOrder": "desc"},
-        "range": [0, 100]
-    }
-    top_tickers = {}
-
-    try:
-        logger.info("Hacim sıralaması çekiliyor...")
-        res = session.post(url, json=payload, timeout=6)
-
-        if res.status_code == 200:
-            data = res.json().get("data", [])
-            for item in data:
-                d = item.get("d", [])
-                if len(d) >= 3:
-                    sym_name = d[0]
-                    close_p = d[1]
-                    chg_pct = d[2]
-                    if close_p is not None and chg_pct is not None:
-                        top_tickers[f"{sym_name}.IS"] = (float(close_p), float(chg_pct))
-
-            logger.info(f"{len(top_tickers)} hisse hacim sıralaması alındı")
-    except Exception as e:
-        logger.error(f"Hacim sıralaması hatası: {e}")
-
-    return top_tickers  # boş dönebilir — UI bunu ele alır, uydurma veri yok
-
-
-# ============================================================
-# 📍 DÜZELTME 3: BIST ANA artık BIST100'ü rastgele bir katsayıyla
-# (x0.68) çarpıp uydurmuyor. Gerçek sembolle TradingView'dan
-# çekmeyi dener; bulamazsa None döner ve arayüz "veri yok" gösterir.
-# ============================================================
+# 📍 BIST ANA
 def fetch_bist_ana_data():
     try:
         live = fetch_tv_quote("BIST:XBANA")
@@ -642,6 +905,22 @@ def fetch_bist_ana_data():
         live = None
 
     if not live:
+        # Yedek olarak Yahoo Finance'den dene
+        if HAS_YFINANCE:
+            try:
+                yahoo_data = fetch_yahoo_data("XBANA.IS")
+                if yahoo_data:
+                    return {
+                        "symbol": "BIST ANA",
+                        "price": yahoo_data['price'],
+                        "change": yahoo_data['change'],
+                        "currency": "TRY",
+                        "support": yahoo_data.get('support', 0),
+                        "resistance": yahoo_data.get('resistance', 0),
+                        "df": yahoo_data.get('df')
+                    }
+            except:
+                pass
         return None
 
     return {
@@ -654,19 +933,14 @@ def fetch_bist_ana_data():
         "df": None
     }
 
-
-# ============================================================
-# 📍 DÜZELTME 4: USD/TRY ve EUR/TRY artık sabit kodlanmış
-# (34.50 / 37.20) değil, Frankfurter (ECB) üzerinden GERÇEK
-# kur olarak çekiliyor.
-# ============================================================
+# 📍 DÖVİZ KURLARI
 @st.cache_data(ttl=Config.CACHE_TTL_SHORT)
 def fetch_fx_rate(pair_from: str, pair_to: str) -> Optional[Dict[str, float]]:
     """Gerçek döviz kuru (ECB referans, Frankfurter API üzerinden)."""
     try:
         session = get_browser_session()
         today = datetime.date.today()
-        start = today - datetime.timedelta(days=6)  # hafta sonu/tatil güvenliği
+        start = today - datetime.timedelta(days=6)
         url = f"{Config.FX_BASE_URL}/{start.isoformat()}..{today.isoformat()}?from={pair_from}&to={pair_to}"
         res = session.get(url, timeout=5)
         if res.status_code != 200:
@@ -685,8 +959,9 @@ def fetch_fx_rate(pair_from: str, pair_to: str) -> Optional[Dict[str, float]]:
         logger.error(f"Döviz kuru hatası ({pair_from}/{pair_to}): {e}")
         return None
 
-
+# ============================================================
 # 📍 ANALYZE WITH AI
+# ============================================================
 def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], history: list, client) -> str:
     if market_data and market_data.get('df') is not None:
         df = market_data['df']
@@ -706,9 +981,11 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
         sma20_str = f"{sma20:.2f}" if sma20 is not None else "Yetersiz geçmiş veri"
         sma50_str = f"{sma50:.2f}" if sma50 is not None else "Yetersiz geçmiş veri"
         currency = market_data['currency']
+        
+        data_source = market_data.get('data_source', 'bilinmiyor')
 
         data_str = (
-            f"📊 KESİN GERÇEK VERİLER (kaynak: {market_data.get('data_source', 'bilinmiyor')}):\n"
+            f"📊 KESİN GERÇEK VERİLER (kaynak: {data_source}):\n"
             f"- Sembol: {market_data['symbol']}\n"
             f"- Canlı Son Fiyat: {market_data['price']:.2f} {market_data['currency']}\n"
             f"- Günlük Değişim: %{market_data['change']:+.2f}\n"
@@ -763,6 +1040,65 @@ def analyze_with_ai(user_prompt: str, market_data: Optional[Dict[str, Any]], his
         logger.error(f"AI analiz hatası: {err}")
         return f"⚠️ AI Analiz Hatası: {err}"
 
+# ============================================================
+# 📍 TOP VOLUME BIST100
+# ============================================================
+@st.cache_data(ttl=Config.CACHE_TTL_MEDIUM)
+def get_top_volume_bist100_symbols():
+    """Gerçek hacim sıralaması."""
+    session = get_browser_session()
+    url = Config.TV_SCAN_URL
+    payload = {
+        "filter": [{"left": "exchange", "operation": "equal", "right": "BIST"}],
+        "options": {"lang": "tr"},
+        "symbols": {"query": {"types": []}},
+        "columns": ["name", "close", "change", "volume", "market_cap_basic"],
+        "sort": {"sortBy": "volume", "sortOrder": "desc"},
+        "range": [0, 100]
+    }
+    top_tickers = {}
+
+    try:
+        logger.info("Hacim sıralaması çekiliyor...")
+        res = session.post(url, json=payload, timeout=6)
+
+        if res.status_code == 200:
+            data = res.json().get("data", [])
+            for item in data:
+                d = item.get("d", [])
+                if len(d) >= 3:
+                    sym_name = d[0]
+                    close_p = d[1]
+                    chg_pct = d[2]
+                    if close_p is not None and chg_pct is not None:
+                        top_tickers[f"{sym_name}.IS"] = (float(close_p), float(chg_pct))
+
+            logger.info(f"{len(top_tickers)} hisse hacim sıralaması alındı")
+    except Exception as e:
+        logger.error(f"Hacim sıralaması hatası: {e}")
+
+    return top_tickers
+
+# ============================================================
+# 📍 PARALEL VERİ ÇEKME
+# ============================================================
+def fetch_multiple_symbols(symbols: list) -> dict:
+    """Birden fazla sembolün verisini paralel olarak çeker"""
+    results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_symbol = {
+            executor.submit(fetch_real_market_data, sym): sym 
+            for sym in symbols
+        }
+        for future in concurrent.futures.as_completed(future_to_symbol):
+            symbol = future_to_symbol[future]
+            try:
+                results[symbol] = future.result()
+            except Exception as e:
+                logger.error(f"{symbol} çekilemedi: {e}")
+                results[symbol] = None
+    return results
+
 # --- SIDEBAR (SOL MENÜ) ---
 with st.sidebar:
     st.markdown("""
@@ -772,7 +1108,7 @@ with st.sidebar:
         </div>
         <div>
             <h2 style="margin:0; font-size: 1.2rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; line-height: 1.2;">BISTeknik</h2>
-            <span style="font-size: 0.6rem; color: rgba(255,255,255,0.4); font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">QUANT TERMINAL v2.1</span>
+            <span style="font-size: 0.6rem; color: rgba(255,255,255,0.4); font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">QUANT TERMINAL v3.0</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -786,6 +1122,30 @@ with st.sidebar:
         groq_api_key = st.text_input("Groq API Key:", type="password", key="groq_key_input")
 
     st.markdown("---")
+    
+    # 📍 YENİ: Veri Kaynağı Durumu
+    st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>🔌 VERİ KAYNAKLARI</p>", unsafe_allow_html=True)
+    
+    source_status = []
+    if HAS_YFINANCE:
+        source_status.append("✅ Yahoo Finance")
+    else:
+        source_status.append("❌ Yahoo Finance (kurulu değil)")
+    source_status.append("✅ Stooq")
+    source_status.append("✅ TradingView")
+    if HAS_ALPHA_VANTAGE:
+        source_status.append("✅ Alpha Vantage")
+    else:
+        source_status.append("❌ Alpha Vantage (API key yok)")
+    if HAS_FINNHUB:
+        source_status.append("✅ Finnhub")
+    else:
+        source_status.append("❌ Finnhub (API key yok)")
+    
+    for status in source_status:
+        st.caption(status)
+    
+    st.markdown("---")
 
     st.markdown("<p style='font-size: 0.65rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;'>📋 CANLI WATCHLIST</p>", unsafe_allow_html=True)
     watchlist_input = st.text_input("Semboller (virgülle ayırın):", value="THYAO.IS, ASELS.IS, GARAN.IS", label_visibility="collapsed")
@@ -796,16 +1156,21 @@ with st.sidebar:
             symbols = [sanitize_symbol(s.strip()) for s in watchlist_input.split(",") if s.strip()]
 
             progress_bar = st.progress(0)
+            
+            # 📍 YENİ: Paralel veri çekme
+            results = fetch_multiple_symbols(symbols)
 
             for i, sym in enumerate(symbols):
                 progress_bar.progress((i + 1) / len(symbols))
-                res_data = fetch_real_market_data(sym)
+                res_data = results.get(sym)
                 if res_data:
                     st.metric(
                         label=res_data['symbol'],
                         value=f"{res_data['price']:,.2f} {res_data['currency']}",
                         delta=f"%{res_data['change']:+.2f}"
                     )
+                    # Veri kaynağını göster
+                    st.caption(f"📡 {res_data.get('data_source', 'Bilinmiyor')}")
                 else:
                     st.caption(f"⚠️ {sym} canlı veri alınamadı.")
 
@@ -846,7 +1211,7 @@ with logo_and_summary_cols[0]:
             </div>
             <div>
                 <h1 style="margin:0; font-size: 1.4rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; line-height: 1.1;">BISTeknik</h1>
-                <span style="font-size: 0.6rem; color: rgba(255,255,255,0.3); font-weight: 500; letter-spacing: 0.5px;">AI QUANT TERMINAL</span>
+                <span style="font-size: 0.6rem; color: rgba(255,255,255,0.3); font-weight: 500; letter-spacing: 0.5px;">AI QUANT TERMINAL v3.0</span>
             </div>
         </div>
     </div>
@@ -862,6 +1227,18 @@ with logo_and_summary_cols[1]:
         bist100_live = fetch_tv_quote("BIST:XU100")
     except Exception as e:
         logger.error(f"BIST100 hatası: {e}")
+        
+        # Yedek: Yahoo Finance
+        if HAS_YFINANCE:
+            try:
+                yahoo_bist = fetch_yahoo_data("XU100.IS")
+                if yahoo_bist:
+                    bist100_live = {
+                        "price": yahoo_bist['price'],
+                        "change": yahoo_bist['change']
+                    }
+            except:
+                pass
 
     summary_metrics["BIST 100"] = (
         {"price": bist100_live['price'], "change": bist100_live['change']}
@@ -958,11 +1335,15 @@ with col_left:
         else:
             last_rsi = 50.0
 
+        # 📍 YENİ: Veri kaynağı badge'li başlık
+        data_source = market_data.get('data_source', 'Bilinmiyor')
+        source_class = "yahoo" if "Yahoo" in data_source else "stooq" if "Stooq" in data_source else "tv" if "TradingView" in data_source else "fallback"
+        
         st.markdown(
             f"""
             <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px 14px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);">
                 <span style="font-weight: 700; color: #f1f5f9;">{market_data['symbol']}</span>
-                <span style="color: rgba(255,255,255,0.4); font-size: 0.8rem;">{market_data.get('data_source', 'Canlı Veri')}</span>
+                <span class="data-source-badge {source_class}">{data_source}</span>
                 <span style="float: right; font-weight: 700; color: #f1f5f9; font-family: 'JetBrains Mono', monospace;">
                     {market_data['price']:.2f} {market_data['currency']}
                     <span style="color: {trend_color}; margin-left: 8px;">%{market_data['change']:+.2f}</span>
@@ -1077,6 +1458,15 @@ with col_left:
     else:
         st.error(f"❌ **{active_symbol}** için borsadan canlı veri alınamadı.")
         st.info("💡 Öneriler:\n- Sembol kodunu kontrol edin (örn: THYAO.IS)\n- Borsa açık mı kontrol edin\n- Geçerli bir hisse kodu girin (örn: GARAN.IS, THYAO.IS)")
+        
+        # 📍 YENİ: Veri kaynağı önerileri
+        st.warning("""
+        🔍 **Veri kaynağı sorunu mu yaşıyorsunuz?**
+        
+        1. 📦 `pip install yfinance` ile Yahoo Finance'i kurun
+        2. 🔑 Alpha Vantage veya Finnhub API key alın
+        3. 🌐 İnternet bağlantınızı kontrol edin
+        """)
 
 # SAĞ PANEL
 with col_right:
@@ -1108,11 +1498,12 @@ with col_right:
             default_symbol = active_symbol if 'active_symbol' in dir() else "THYAO.IS"
             query_symbol = extract_symbol_fast(prompt, default_sym=default_symbol)
 
-            # 📍 DÜZELTME 5: eskiden operatör önceliği hatası yüzünden
-            # ("A or B) if C else D" şeklinde parse edildiği için) market_data
-            # tanımsızsa TradingView'dan yeni çekilen veri bile çöpe gidiyordu.
-            fallback_data = market_data if 'market_data' in dir() else None
-            target_market_data = fetch_real_market_data(query_symbol) or fallback_data
+            # Veri çek
+            target_market_data = fetch_real_market_data(query_symbol)
+            
+            # Fallback: Mevcut market_data'yı kullan
+            if not target_market_data and 'market_data' in locals():
+                target_market_data = market_data
 
             progress_bar.progress(60)
             progress_text.text("🤖 AI modeli çalıştırılıyor...")
