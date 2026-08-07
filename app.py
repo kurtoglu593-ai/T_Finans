@@ -38,11 +38,10 @@ st.set_page_config(
 )
 
 # ============================================================
-# 🎨 CSS — SİZİN VERDİĞİNİZ TAM TASARIM
+# 🎨 CSS
 # ============================================================
 st.markdown("""
 <style>
-/* BISTeknik PRO - Profesyonel terminal görünümü */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
@@ -226,7 +225,6 @@ h3 { font-size: 1.2rem !important; }
     border-radius: 7px !important;
 }
 
-/* CHAT - Panel renginde ama okunur */
 [data-testid='stChatMessage'] {
     background: var(--panel) !important;
     border: 1px solid var(--border) !important;
@@ -517,7 +515,9 @@ except Exception as e:
     st.error(f"❌ Client hatası: {e}")
     st.stop()
 
-# LOGO
+# ============================================================
+# 📍 LOGO
+# ============================================================
 st.markdown("""
 <div style="display:flex; justify-content:center; padding:20px 0 10px 0;">
     <div class="logo-container">
@@ -532,21 +532,25 @@ st.markdown("""
 
 st.markdown("---")
 
-# SEARCH
+# ============================================================
+# 📍 SEARCH
+# ============================================================
 col1, col2 = st.columns([3, 1])
 
 with col1:
     user_input = st.text_input(
         "",
-        placeholder="🔍 Hisse kodu girin... (Örnek: SASA, THYAO, GARAN)",
+        placeholder="Hisse kodu girin... (Ornek: SASA, THYAO, GARAN)",
         label_visibility="collapsed",
         key="search_input"
     )
 
 with col2:
-    analyze_btn = st.button("🚀 ANALİZ ET", use_container_width=True)
+    analyze_btn = st.button("ANALIZ ET", use_container_width=True)
 
-# Session state
+# ============================================================
+# 📍 SESSION STATE
+# ============================================================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -556,9 +560,11 @@ if "market_data" not in st.session_state:
 if "competitors" not in st.session_state:
     st.session_state.competitors = []
 
-# ANALİZ
+# ============================================================
+# 📍 ANALIZ
+# ============================================================
 if analyze_btn and user_input:
-    with st.spinner("🚀 Veriler çekiliyor..."):
+    with st.spinner("Veriler cekiliyor..."):
         symbol = sanitize_symbol(user_input)
         market_data = fetch_market_data(symbol)
         
@@ -573,7 +579,7 @@ if analyze_btn and user_input:
                     competitors.append(comp_data)
             st.session_state.competitors = competitors
             
-            prompt = f"{symbol} hissesi için detaylı profesyonel analiz yap."
+            prompt = f"{symbol} hissesi icin detayli profesyonel analiz yap."
             analysis = analyze_with_ai(
                 prompt,
                 market_data,
@@ -585,19 +591,21 @@ if analyze_btn and user_input:
             st.session_state.messages.append({"role": "assistant", "content": analysis})
             st.rerun()
         else:
-            st.error(f"❌ {symbol} için veri bulunamadı")
+            st.error(f"❌ {symbol} icin veri bulunamadi")
 
-# GÖSTERİM
+# ============================================================
+# 📊 GOSTERIM
+# ============================================================
 if st.session_state.market_data:
     data = st.session_state.market_data
     df = data['df']
     
-    # METRİKLER
+    # METRIKLER
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric(
-            "💰 Fiyat",
+            "Fiyat",
             f"{data['price']:.2f} ₺",
             f"%{data['change']:+.2f}",
             delta_color="normal" if data['change'] >= 0 else "inverse"
@@ -605,24 +613,24 @@ if st.session_state.market_data:
     
     with col2:
         last_rsi = df['RSI'].iloc[-1] if 'RSI' in df else 50
-        st.metric("📊 RSI", f"{last_rsi:.1f}", get_rsi_comment(last_rsi))
+        st.metric("RSI", f"{last_rsi:.1f}", get_rsi_comment(last_rsi))
     
     with col3:
         sma20 = df['SMA20'].iloc[-1] if 'SMA20' in df else 0
-        st.metric("📈 SMA20", f"{sma20:.2f} ₺")
+        st.metric("SMA20", f"{sma20:.2f} ₺")
     
     with col4:
         sma50 = df['SMA50'].iloc[-1] if 'SMA50' in df else 0
-        st.metric("📈 SMA50", f"{sma50:.2f} ₺")
+        st.metric("SMA50", f"{sma50:.2f} ₺")
     
     with col5:
         monthly_return = (df['Close'].iloc[-1] / df['Close'].iloc[-22] - 1) * 100 if len(df) > 22 else 0
-        st.metric("📆 Aylık", f"%{monthly_return:+.2f}")
+        st.metric("Aylik", f"%{monthly_return:+.2f}")
     
     st.markdown("---")
     
-    # GRAFİKLER
-    tab1, tab2, tab3 = st.tabs(["📈 Fiyat & SMA", "📊 Teknik Göstergeler", "📉 Karşılaştırma"])
+    # GRAFIKLER
+    tab1, tab2, tab3 = st.tabs(["Fiyat & SMA", "Teknik Gostergeler", "Karsilastirma"])
     
     with tab1:
         fig = go.Figure()
@@ -742,7 +750,7 @@ if st.session_state.market_data:
                     ))
             
             fig.update_layout(
-                title=f"<b>{data['symbol']}</b> — Rakiplerle Karşılaştırma",
+                title=f"<b>{data['symbol']}</b> — Rakiplerle Karsilastirma",
                 template="plotly_dark",
                 height=400,
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -753,16 +761,16 @@ if st.session_state.market_data:
             
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("📊 Rakip verileri yüklenemedi.")
+            st.info("Rakip verileri yuklenemedi.")
     
     # HABERLER
-    with st.expander("📰 GÜNCEL HABERLER", expanded=True):
+    with st.expander("GUNCEL HABERLER", expanded=True):
         news = fetch_news(data['symbol'])
         st.markdown(news)
     
-    # AI ANALİZ
+    # AI ANALIZ
     st.markdown("---")
-    st.markdown('<h3 style="text-align:center; font-weight:700;">🤖 AI QUANT ANALİZ</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="text-align:center; font-weight:700;">AI QUANT ANALIZ</h3>', unsafe_allow_html=True)
     st.markdown("---")
     
     for msg in st.session_state.messages:
@@ -770,12 +778,12 @@ if st.session_state.market_data:
             st.markdown(msg["content"])
     
     # KULLANICI SORUSU
-    user_question = st.chat_input("📝 Hisse hakkında detaylı soru sorun...")
+    user_question = st.chat_input("Hisse hakkinda soru sorun...")
     
     if user_question:
         st.session_state.messages.append({"role": "user", "content": user_question})
         
-        with st.spinner("🧠 Derinlemesine analiz yapılıyor..."):
+        with st.spinner("Analiz yapiliyor..."):
             analysis = analyze_with_ai(
                 user_question,
                 st.session_state.market_data,
@@ -788,20 +796,20 @@ if st.session_state.market_data:
             st.rerun()
 
 else:
-    # BAŞLANGIÇ EKRANI
+    # BASLANGIC EKRANI
     st.markdown("""
     <div style="text-align:center; padding:60px 20px;">
         <div style="font-size:72px; margin-bottom:20px;">📈</div>
         <h2 style="font-size:2rem; margin-bottom:10px;">Profesyonel AI Quant Terminal</h2>
         <p style="color:#8b9aac; font-size:1.1rem; max-width:500px; margin:0 auto;">
-            Yukarıdaki arama kutusuna bir hisse kodu yazın ve anında detaylı analiz alın.
+            Yukaridaki arama kutusuna bir hisse kodu yazin ve aninda detayli analiz alin.
         </p>
         <div style="margin-top:40px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">📊 SASA</span>
-            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">✈️ THYAO</span>
-            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">🏦 GARAN</span>
-            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">🔧 ASELS</span>
-            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">🛢️ TUPRS</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">SASA</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">THYAO</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">GARAN</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">ASELS</span>
+            <span style="background:rgba(255,255,255,0.05); padding:10px 24px; border-radius:30px; border:1px solid rgba(255,255,255,0.06); color:#e7edf4;">TUPRS</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
