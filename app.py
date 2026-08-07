@@ -51,164 +51,210 @@ st.set_page_config(
 # ============================================================
 st.markdown("""
 <style>
-    /* ==========================================
-       ANA ARKA PLAN - CANLI GRADYAN
-       ========================================== */
-    .stApp {
-        background: linear-gradient(135deg, #0c0e1a 0%, #1a1f3a 30%, #162447 60%, #0f1b2d 100%);
-        background-attachment: fixed;
-    }
-    
-    /* ==========================================
-       TÜM YAZILAR BEYAZ (CHAT DIŞINDA)
-       ========================================== */
-    * {
-        color: #f0f4ff !important;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    }
-    
-    /* ==========================================
-       BAŞLIKLAR - GRADYAN
-       ========================================== */
-    h1, h2, h3, h4, h5, h6 {
-        background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
-        background-clip: text !important;
-        font-weight: 900 !important;
-        letter-spacing: -0.5px !important;
-    }
-    
-    h1 { font-size: 3.2rem !important; }
-    h2 { font-size: 2.2rem !important; }
-    
-    /* ==========================================
-       GLASSMORPHISM KARTLAR
-       ========================================== */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.06) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 20px !important;
-        padding: 24px !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
-        transition: all 0.4s ease !important;
-    }
-    
-    .glass-card:hover {
-        border-color: rgba(96, 165, 250, 0.3) !important;
-        box-shadow: 0 12px 48px rgba(96, 165, 250, 0.15) !important;
-        transform: translateY(-4px) !important;
-    }
-    
-    /* ==========================================
-       LOGO - ANİMASYONLU
-       ========================================== */
-    @keyframes pulse-glow {
-        0% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
-        50% { box-shadow: 0 0 40px rgba(96, 165, 250, 0.4), 0 0 60px rgba(167, 139, 250, 0.2); }
-        100% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
-    }
-    
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        background: rgba(255, 255, 255, 0.05);
-        padding: 12px 24px;
-        border-radius: 60px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(10px);
-        animation: pulse-glow 3s ease-in-out infinite;
-        display: inline-flex;
-    }
-    
-    .logo-icon {
-        font-size: 42px;
-        background: linear-gradient(135deg, #60a5fa, #a78bfa);
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 20px rgba(96, 165, 250, 0.3);
-    }
-    
-    .logo-text {
-        font-size: 28px;
-        font-weight: 900;
-        background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        letter-spacing: -1px;
-    }
-    
-    .logo-sub {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.4) !important;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        font-weight: 600;
-    }
-    
-    /* ==========================================
-       SEARCH INPUT - GLASS
-       ========================================== */
-    .stTextInput input {
-        background: rgba(255, 255, 255, 0.08) !important;
-        border: 2px solid rgba(255, 255, 255, 0.12) !important;
-        border-radius: 16px !important;
-        color: #ffffff !important;
-        font-size: 18px !important;
-        padding: 14px 24px !important;
-        backdrop-filter: blur(10px) !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    .stTextInput input:focus {
-        border-color: #60a5fa !important;
-        box-shadow: 0 0 30px rgba(96, 165, 250, 0.15) !important;
-        background: rgba(255, 255, 255, 0.12) !important;
-    }
-    
-    .stTextInput input::placeholder {
-        color: rgba(255, 255, 255, 0.3) !important;
-    }
-    
-    /* ==========================================
-       BUTON - NEON EFFECT
-       ========================================== */
-    @keyframes neon-glow {
-        0% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
-        50% { box-shadow: 0 0 40px rgba(96, 165, 250, 0.4), 0 0 60px rgba(167, 139, 250, 0.2); }
-        100% { box-shadow: 0 0 20px rgba(96, 165, 250, 0.2); }
-    }
-    
-    .stButton button {
-        background: linear-gradient(135deg, #3b82f6, #7c3aed) !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 16px !important;
-        padding: 14px 36px !important;
-        font-weight: 700 !important;
-        font-size: 16px !important;
-        transition: all 0.3s ease !important;
-        width: 100% !important;
-        animation: neon-glow 3s ease-in-out infinite;
-        letter-spacing: 0.5px !important;
-    }
-    
-    .stButton button:hover {
-        transform: scale(1.03) !important;
-        box-shadow: 0 8px 40px rgba(59, 130, 246, 0.5) !important;
-    }
-    
-    .stButton button * {
-        color: #ffffff !important;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+
+:root {
+    --bg: #0b0f14;
+    --panel: #111820;
+    --panel-2: #151e28;
+    --border: #263341;
+    --text: #e6edf3;
+    --muted: #8b98a7;
+    --blue: #4f9cf9;
+    --green: #32d583;
+    --red: #f97068;
+    --amber: #f5b84b;
+}
+
+.stApp {
+    background: var(--bg) !important;
+}
+
+[data-testid="stHeader"] {
+    background: rgba(11, 15, 20, .94) !important;
+}
+
+[data-testid="stAppViewContainer"] > .main {
+    max-width: 1440px;
+    padding: 1rem 2rem 3rem;
+}
+
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    color: var(--text) !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text) !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-weight: 700 !important;
+    letter-spacing: -.02em !important;
+}
+
+h1 { font-size: 2rem !important; }
+h2 { font-size: 1.45rem !important; }
+h3 { font-size: 1.15rem !important; }
+
+.logo-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px 8px 8px;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    animation: none !important;
+}
+
+.logo-icon {
+    width: 40px !important;
+    height: 40px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--blue) !important;
+    border-radius: 8px !important;
+    font-size: 22px !important;
+    box-shadow: none !important;
+}
+
+.logo-text {
+    color: var(--text) !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--text) !important;
+    font-size: 19px !important;
+    font-weight: 700 !important;
+    letter-spacing: -.02em !important;
+}
+
+.logo-sub {
+    color: var(--muted) !important;
+    font-size: 10px !important;
+    letter-spacing: 1.5px !important;
+}
+
+.stTextInput input {
+    height: 46px !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 7px !important;
+    color: var(--text) !important;
+    font-size: 15px !important;
+    padding: 0 15px !important;
+    box-shadow: none !important;
+}
+
+.stTextInput input:focus {
+    border-color: var(--blue) !important;
+    box-shadow: 0 0 0 2px rgba(79,156,249,.16) !important;
+}
+
+.stTextInput input::placeholder { color: var(--muted) !important; }
+
+.stButton button {
+    height: 46px !important;
+    background: var(--blue) !important;
+    color: #06111d !important;
+    border: 0 !important;
+    border-radius: 7px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    box-shadow: none !important;
+    animation: none !important;
+    transition: background .15s ease !important;
+}
+
+.stButton button:hover { background: #75b4ff !important; transform: none !important; }
+.stButton button * { color: #06111d !important; }
+
+[data-testid="stMetric"] {
+    min-height: 94px !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    padding: 15px 16px !important;
+    box-shadow: none !important;
+    transition: border-color .15s ease !important;
+}
+
+[data-testid="stMetric"]:hover { border-color: #3a4d61 !important; transform: none !important; }
+[data-testid="stMetricLabel"] { color: var(--muted) !important; font-size: 11px !important; font-weight: 600 !important; }
+[data-testid="stMetricValue"] { color: var(--text) !important; font-family: 'JetBrains Mono', monospace !important; font-size: 1.35rem !important; }
+[data-testid="stMetricDelta"] { font-family: 'JetBrains Mono', monospace !important; font-size: .78rem !important; }
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 2px !important;
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 7px !important;
+    padding: 3px !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: var(--muted) !important;
+    border-radius: 5px !important;
+    padding: 7px 15px !important;
+    font-size: 13px !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    color: var(--text) !important;
+    background: var(--panel-2) !important;
+    border-bottom: 2px solid var(--blue) !important;
+}
+
+.streamlit-expanderHeader {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    color: var(--text) !important;
+    font-weight: 600 !important;
+}
+.streamlit-expanderContent {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-top: 0 !important;
+    border-radius: 0 0 8px 8px !important;
+}
+
+[data-testid="stChatMessage"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    margin: 8px 0 !important;
+}
+[data-testid="stChatMessage"] * { color: var(--text) !important; }
+[data-testid="stChatInput"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+}
+[data-testid="stChatInput"] input { color: var(--text) !important; }
+[data-testid="stChatInput"] input::placeholder { color: var(--muted) !important; }
+
+.stAlert {
+    background: var(--panel) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+}
+
+.stMarkdown p { color: #b6c1cc !important; line-height: 1.55 !important; }
+hr { border: 0 !important; border-top: 1px solid var(--border) !important; margin: 18px 0 !important; }
+
+@media (max-width: 768px) {
+    [data-testid="stAppViewContainer"] > .main { padding: .7rem .8rem 2rem; }
+    h1 { font-size: 1.55rem !important; }
+    .logo-text { font-size: 16px !important; }
+    [data-testid="stMetric"] { min-height: 78px !important; padding: 10px !important; }
+    [data-testid="stMetricValue"] { font-size: 1.05rem !important; }
+    .stTabs [data-baseweb="tab"] { padding: 6px 8px !important; font-size: 11px !important; }
+}
+</style>
+""", unsafe_allow_html=True)
+```
     
     /* ==========================================
        METRİK KARTLARI - GLASS
